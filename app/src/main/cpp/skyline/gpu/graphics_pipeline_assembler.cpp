@@ -95,6 +95,13 @@ namespace skyline::gpu {
           pool{gpu.traits.quirks.brokenMultithreadedPipelineCompilation ? 1U : 0U},
           pipelineCacheDir{pipelineCacheDir} {}
 
+    GraphicsPipelineAssembler::~GraphicsPipelineAssembler() {
+        pool.wait_for_tasks();
+        std::scoped_lock lock{saveMutex};
+        std::vector<u8> rawData{vkPipelineCache.getData()};
+        SerialisePipelineCache(gpu, pipelineCacheDir, rawData);
+    }
+
     #define VEC_CPY(pointer, size) state.pointer, state.pointer + state.size
 
     GraphicsPipelineAssembler::PipelineDescription::PipelineDescription(const GraphicsPipelineAssembler::PipelineState &state)
@@ -214,6 +221,14 @@ namespace skyline::gpu {
 
         std::scoped_lock lock{mutex};
         compilePendingDescs.erase(pipelineDescIt);
+
+        // Persist the driver pipeline cache periodically so runtime compilations survive process death; without this the
+        // cache file would only ever contain pipelines known at boot and every session would recompile from scratch
+        if (compilesSinceLastSave.fetch_add(1) + 1 >= PipelineCacheSaveInterval) {
+            compilesSinceLastSave.store(0);
+            SavePipelineCache();
+        }
+
         return pipeline;
     }
 
@@ -248,6 +263,7 @@ namespace skyline::gpu {
 
     void GraphicsPipelineAssembler::SavePipelineCache() {
         std::ignore = pool.submit([this] () {
+            std::scoped_lock lock{saveMutex};
             std::vector<u8> rawData{vkPipelineCache.getData()};
             SerialisePipelineCache(gpu, pipelineCacheDir, rawData);
         });

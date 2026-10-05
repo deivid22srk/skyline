@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <future>
 #include <BS_thread_pool.hpp>
 #include <vulkan/vulkan_raii.hpp>
@@ -118,6 +119,10 @@ namespace skyline::gpu {
 
         std::mutex mutex; //!< Protects access to `compilePendingDescs`
         std::list<PipelineDescription> compilePendingDescs; //!< List of pipeline descriptions that are pending compilation
+        std::atomic<u32> compilesSinceLastSave{0}; //!< Number of pipelines compiled into the Vulkan pipeline cache since it was last persisted
+        std::mutex saveMutex; //!< Protects concurrent writes of the pipeline cache file from multiple compilation threads
+
+        static constexpr u32 PipelineCacheSaveInterval{32}; //!< Number of new pipeline compilations between persisting the Vulkan pipeline cache
 
         /**
          * @brief Synchronously compiles a pipeline with the state from the given description
@@ -126,6 +131,12 @@ namespace skyline::gpu {
 
       public:
         GraphicsPipelineAssembler(GPU &gpu, std::string_view pipelineCacheDir);
+
+        /**
+         * @brief Waits for all pending compilations and persists the Vulkan pipeline cache to the filesystem
+         * @note Pipelines compiled at runtime are persisted incrementally (see PipelineCacheSaveInterval) so they survive unclean process death
+         */
+        ~GraphicsPipelineAssembler();
 
         struct CompiledPipeline {
             vk::raii::DescriptorSetLayout descriptorSetLayout;
