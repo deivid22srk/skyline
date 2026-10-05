@@ -20,7 +20,9 @@ namespace skyline::service::socket {
         Result UnknownCommand(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
 
         SERVICE_DECL(
-            SFUNC(0x15, IManager, UnknownCommand)
+            SFUNC(0x15, IManager, UnknownCommand),
+            SFUNC(0x16, IManager, UnknownCommand),
+            SFUNC(0x1A, IManager, UnknownCommand)
         )
     };
 }

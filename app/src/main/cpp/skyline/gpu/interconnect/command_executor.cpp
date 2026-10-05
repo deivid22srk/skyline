@@ -651,9 +651,24 @@ namespace skyline::gpu::interconnect {
             }
         } catch (const exception &e) {
             // Enrich device lost/other submission failures with context to help isolate the offending submission
-            if (std::string_view(e.what()).find("DEVICE_LOST") != std::string_view::npos)
-                Logger::Error("Device lost during submission #{}: {} attached textures, {} attached buffers, renderPassIndex: {}, slot: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
-                              submissionNumber, attachedTextures.size(), attachedBuffers.size(), renderPassIndex, slots.size());
+            if (std::string_view(e.what()).find("DEVICE_LOST") != std::string_view::npos) {
+                Logger::Error("Device lost during submission #{}: {} attached textures, {} preserve textures, {} attached buffers, {} preserve buffers, renderPassIndex: {}, slots: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
+                              submissionNumber, attachedTextures.size(), preserveAttachedTextures.size(), attachedBuffers.size(), preserveAttachedBuffers.size(), renderPassIndex, slots.size());
+
+                Logger::Error("{}", e.what());
+
+                size_t textureIndex{};
+                for (const auto &texture : ranges::views::concat(attachedTextures, preserveAttachedTextures)) {
+                    Logger::Error("  texture[{}]: {}x{}x{} fmt={} usage={} guest=0x{:X}", textureIndex++,
+                                  texture->dimensions.width, texture->dimensions.height, texture->dimensions.depth,
+                                  vk::to_string(texture->format->vkFormat), vk::to_string(texture->usage),
+                                  reinterpret_cast<uintptr_t>(texture->guest ? texture->guest->mappings[0].begin().base() : nullptr));
+                }
+
+                size_t bufferIndex{};
+                for (const auto &buffer : ranges::views::concat(attachedBuffers, preserveAttachedBuffers))
+                    Logger::Error("  buffer[{}]: vkBuffer=0x{:X}", bufferIndex++, reinterpret_cast<uintptr_t>(static_cast<VkBuffer>(buffer->buffer->GetBacking())));
+            }
             throw;
         }
 
