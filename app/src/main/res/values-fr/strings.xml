@@ -253,7 +253,7 @@
     <string name="settings_category_content_summary">Répertoire interne, emplacement de recherche et clés</string>
     <string name="settings_category_appearance_summary">Thème, langue et affichage des jeux</string>
     <string name="settings_category_system_summary">Profil de la console, région, langue et audio</string>
-    <string name="settings_category_display_summary">Statistiques de performance, orientation et rapport d'aspect</string>
+    <string name="settings_category_display_summary">Statistiques de performance, orientation et rapport d\'aspect</string>
     <string name="settings_category_gpu_summary">Pilote GPU, shaders et options graphiques</string>
     <string name="settings_category_hacks_summary">Solutions expérimentales</string>
     <string name="settings_category_debug_summary">Journalisation et validation</string>
