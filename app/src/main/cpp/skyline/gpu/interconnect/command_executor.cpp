@@ -652,8 +652,8 @@ namespace skyline::gpu::interconnect {
         } catch (const exception &e) {
             // Enrich device lost/other submission failures with context to help isolate the offending submission
             if (std::string_view(e.what()).find("DEVICE_LOST") != std::string_view::npos)
-                Logger::Error("Device lost during submission #{}: {} attached textures, {} attached buffers, renderPassIndex: {}, slot: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
-                              submissionNumber, attachedTextures.size(), attachedBuffers.size(), renderPassIndex, slots.size());
+                Logger::Error("Device lost during submission #{}: {} attached textures, {} attached buffers, renderPassIndex: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
+                              submissionNumber, attachedTextures.size(), attachedBuffers.size(), renderPassIndex);
             throw;
         }
 
