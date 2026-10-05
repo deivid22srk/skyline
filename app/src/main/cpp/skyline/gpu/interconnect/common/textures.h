@@ -46,11 +46,25 @@ namespace skyline::gpu::interconnect {
         };
         std::vector<CacheEntry> textureHeaderCache;
 
+        /**
+         * @brief A private aligned copy of a texel buffer's contents, used for drivers that require strictly aligned VkBufferView offsets and don't support single-texel alignment
+         * @note Shared ownership of this object is attached to every fence cycle that binds it so it outlives pending GPU submissions
+         */
+        struct AlignedTexelShadow {
+            memory::Buffer buffer; //!< Host-visible device buffer holding the aligned copy, refreshed from the guest mapping before each use
+            vk::raii::BufferView view; //!< Texel view over `buffer` at offset 0
+
+            AlignedTexelShadow(GPU &gpu, vk::DeviceSize size, vk::Format format);
+        };
+
         struct TexelBufferCacheEntry {
             TextureImageControl tic{}; //!< The TIC that the cached view was created from
             u64 sequenceNumber{}; //!< The channel sequence number the cached view was resolved at
             CachedMappedBufferView mappedView{}; //!< Guest-side buffer view for the texel buffer's mapping
             vk::BufferView view{}; //!< Host-side texel view, owned by the underlying Buffer
+            bool usesShadow{}; //!< If `view` points at the aligned shadow copy rather than the guest buffer's backing
+            std::shared_ptr<AlignedTexelShadow> shadow{}; //!< The aligned shadow copy backing `view` when `usesShadow` is set
+            vk::Format shadowFormat{}; //!< The format the shadow view was created with
         };
         std::vector<TexelBufferCacheEntry> texelBufferCache;
         u32 texelBufferWarnCount{}; //!< Throttle counter for texel buffer resolution warnings

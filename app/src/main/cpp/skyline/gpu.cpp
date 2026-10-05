@@ -275,7 +275,8 @@ namespace skyline::gpu {
             vk::PhysicalDeviceDriverProperties,
             vk::PhysicalDeviceFloatControlsProperties,
             vk::PhysicalDeviceTransformFeedbackPropertiesEXT,
-            vk::PhysicalDeviceSubgroupProperties>()};
+            vk::PhysicalDeviceSubgroupProperties,
+            vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT>()};
 
         traits = TraitManager{deviceFeatures2, enabledFeatures2, deviceExtensions, enabledExtensions, deviceProperties2, physicalDevice};
         traits.ApplyDriverPatches(context, mapping);

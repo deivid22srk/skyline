@@ -2,6 +2,7 @@
 // Copyright © 2022 Skyline Team and Contributors (https://github.com/skyline-emu/)
 
 #include <algorithm>
+#include <cstring>
 #include <soc/gm20b/channel.h>
 #include <soc/gm20b/gmmu.h>
 #include <gpu/texture_manager.h>
@@ -402,11 +403,42 @@ namespace skyline::gpu::interconnect {
         return **dummyTexelView;
     }
 
+    Textures::AlignedTexelShadow::AlignedTexelShadow(GPU &gpu, vk::DeviceSize size, vk::Format format)
+        : buffer{gpu.memory.AllocateBuffer(size)},
+          view{gpu.vkDevice, vk::BufferViewCreateInfo{
+              .buffer = buffer.vkBuffer,
+              .format = format,
+              .offset = 0,
+              .range = size,
+          }} {}
+
+    static void TexelBufferFlushHostCallback() {
+        // Mirrors the limitation of ConstantBuffer::Read's FlushHostCallback, flushing pending GPU work mid-draw isn't supported
+        Logger::Warn("GPU-dirty texel buffer flush is unsupported mid-draw, aligned shadow copy may be stale");
+    }
+
+    /**
+     * @brief Calculates the required alignment for a texel buffer view's offset, taking VK_EXT_texel_buffer_alignment into account
+     * @note When the driver reports single-texel alignment support, offsets only need to be aligned to the format's texel block size which is far looser than the core minTexelBufferOffsetAlignment limit
+     */
+    static u32 GetTexelBufferOffsetAlignment(InterconnectContext &ctx, bool storage, size_t bpb) {
+        u32 requiredAlignment{ctx.gpu.traits.minTexelBufferOffsetAlignment};
+        if (ctx.gpu.traits.hasTexelBufferAlignmentExt) {
+            auto strictAlignment{storage ? ctx.gpu.traits.storageTexelBufferOffsetAlignmentBytes : ctx.gpu.traits.uniformTexelBufferOffsetAlignmentBytes};
+            auto singleTexel{storage ? ctx.gpu.traits.storageTexelBufferOffsetSingleTexelAlignment : ctx.gpu.traits.uniformTexelBufferOffsetSingleTexelAlignment};
+            // With single-texel alignment the offset only needs to be a multiple of the format's texel block size
+            u64 texelAlignment{singleTexel ? std::min<u64>(strictAlignment, bpb) : static_cast<u64>(strictAlignment)};
+            if (texelAlignment)
+                requiredAlignment = std::min<u32>(requiredAlignment, static_cast<u32>(texelAlignment));
+        }
+        return requiredAlignment;
+    }
+
     vk::BufferView Textures::GetTexelBuffer(InterconnectContext &ctx, u32 index, bool storage, bool isWritten,
                                             vk::PipelineStageFlagBits dstStage,
                                             vk::PipelineStageFlags &srcStageMask, vk::PipelineStageFlags &dstStageMask) {
-        auto syncBuffer{[&](BufferView &view) {
-            ctx.executor.AttachBuffer(view);
+        auto syncBuffer{[&](BufferView &view) -> bool {
+            bool didLock{ctx.executor.AttachBuffer(view)};
             auto *buffer{view.GetBuffer()};
             buffer->PopulateReadBarrier(dstStage, srcStageMask, dstStageMask);
             if (isWritten) {
@@ -417,6 +449,7 @@ namespace skyline::gpu::interconnect {
                 buffer->MarkGpuDirty(ctx.executor.usageTracker);
             }
             buffer->BlockSequencedCpuBackingWrites();
+            return didLock;
         }};
 
         auto textureHeaders{texturePool.UpdateGet(ctx).textureHeaders};
@@ -437,7 +470,12 @@ namespace skyline::gpu::interconnect {
 
         auto &cached{texelBufferCache[index]};
         if (cached.view && cached.sequenceNumber == ctx.channelCtx.channelSequenceNumber && cached.tic == textureHeader) {
-            syncBuffer(cached.mappedView.view);
+            bool didLock{syncBuffer(cached.mappedView.view)};
+            if (cached.usesShadow) {
+                // Refresh the aligned shadow copy so the GPU observes the current contents of the texel buffer
+                auto srcSpan{cached.mappedView.view.GetReadOnlyBackingSpan(didLock, TexelBufferFlushHostCallback)};
+                std::memcpy(cached.shadow->buffer.data(), srcSpan.data(), std::min<size_t>(cached.shadow->buffer.size(), srcSpan.size()));
+            }
             return cached.view;
         }
 
@@ -470,8 +508,34 @@ namespace skyline::gpu::interconnect {
             return invalid(fmt::format("TIC address 0x{:X} has a split/truncated mapping (wanted 0x{:X} bytes, got 0x{:X})", address, size, cached.mappedView.view.size));
 
         auto viewOffset{cached.mappedView.view.GetOffset()};
-        if (viewOffset & (ctx.gpu.traits.minTexelBufferOffsetAlignment - 1))
-            return invalid(fmt::format("view offset 0x{:X} isn't aligned to minTexelBufferOffsetAlignment (0x{:X})", viewOffset, ctx.gpu.traits.minTexelBufferOffsetAlignment));
+        auto requiredAlignment{GetTexelBufferOffsetAlignment(ctx, storage, format->bpb)};
+        if (viewOffset & (requiredAlignment - 1)) {
+            // Drivers requiring strict view offset alignment can't create views at unaligned offsets, fall back to a private
+            // aligned shadow buffer refreshed before every use rather than binding a null view (which reads as zeroes)
+            constexpr u64 MaxTexelBufferShadowCopySize{1024 * 1024}; //!< Cap on the size of aligned shadow copies to keep per-use refreshes cheap
+            if (storage || size > MaxTexelBufferShadowCopySize)
+                return invalid(fmt::format("view offset 0x{:X} isn't aligned to the required texel buffer offset alignment (0x{:X}) and no aligned shadow copy is possible", viewOffset, requiredAlignment));
+
+            bool didLock{syncBuffer(cached.mappedView.view)};
+
+            if (!cached.shadow || cached.shadow->buffer.size() != size || cached.shadowFormat != format->vkFormat) {
+                cached.shadow = std::make_shared<AlignedTexelShadow>(ctx.gpu, size, format->vkFormat);
+                cached.shadowFormat = format->vkFormat;
+                // Attach shared ownership to the current cycle so the shadow outlives any pending submission using it
+                ctx.executor.AttachDependency(cached.shadow);
+            }
+
+            // Refresh the shadow copy from the guest mapping so the GPU observes the current texel buffer contents
+            auto srcSpan{cached.mappedView.view.GetReadOnlyBackingSpan(didLock, TexelBufferFlushHostCallback)};
+            std::memcpy(cached.shadow->buffer.data(), srcSpan.data(), static_cast<size_t>(size));
+
+            cached.tic = textureHeader;
+            cached.sequenceNumber = ctx.channelCtx.channelSequenceNumber;
+            cached.view = *cached.shadow->view;
+            cached.usesShadow = true;
+
+            return cached.view;
+        }
 
         auto vkView{cached.mappedView.view.GetBuffer()->GetTexelView(format->vkFormat, viewOffset, cached.mappedView.view.size)};
         if (!vkView)
@@ -480,6 +544,7 @@ namespace skyline::gpu::interconnect {
         cached.tic = textureHeader;
         cached.sequenceNumber = ctx.channelCtx.channelSequenceNumber;
         cached.view = vkView;
+        cached.usesShadow = false;
 
         syncBuffer(cached.mappedView.view);
         return vkView;

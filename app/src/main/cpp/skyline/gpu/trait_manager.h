@@ -55,6 +55,11 @@ namespace skyline::gpu {
         u32 minimumStorageBufferAlignment{}; //!< Minimum alignment for storage buffers passed to shaders
         u32 minTexelBufferOffsetAlignment{}; //!< Minimum alignment for the offset of a VkBufferView used for texel buffers
         u64 maxTexelBufferElements{}; //!< Maximum amount of texels addressable by a single texel buffer view
+        bool hasTexelBufferAlignmentExt{}; //!< If the 'VK_EXT_texel_buffer_alignment' extension is supported and enabled
+        u32 uniformTexelBufferOffsetAlignmentBytes{}; //!< Required byte alignment for uniform texel buffer view offsets when single-texel alignment is unsupported
+        bool uniformTexelBufferOffsetSingleTexelAlignment{}; //!< If uniform texel buffer view offsets only need to be aligned to the format's texel block size
+        u32 storageTexelBufferOffsetAlignmentBytes{}; //!< Required byte alignment for storage texel buffer view offsets when single-texel alignment is unsupported
+        bool storageTexelBufferOffsetSingleTexelAlignment{}; //!< If storage texel buffer view offsets only need to be aligned to the format's texel block size
 
         u32 vendorId{}; //!< The `vendorID` Vulkan property
         u32 deviceId{}; //!< The `deviceID` Vulkan property
@@ -103,7 +108,8 @@ namespace skyline::gpu {
             vk::PhysicalDeviceDriverProperties,
             vk::PhysicalDeviceFloatControlsProperties,
             vk::PhysicalDeviceTransformFeedbackPropertiesEXT,
-            vk::PhysicalDeviceSubgroupProperties>;
+            vk::PhysicalDeviceSubgroupProperties,
+            vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT>;
 
         using DeviceFeatures2 = vk::StructureChain<
             vk::PhysicalDeviceFeatures2,
