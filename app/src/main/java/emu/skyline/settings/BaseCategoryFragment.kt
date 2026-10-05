@@ -16,6 +16,7 @@ import androidx.preference.forEach
 import emu.skyline.BuildConfig
 import emu.skyline.MainActivity
 import emu.skyline.R
+import emu.skyline.preference.PreferenceLaunchers
 import emu.skyline.utils.GpuDriverHelper
 import emu.skyline.utils.WindowInsetsHelper
 
@@ -31,9 +32,18 @@ abstract class BaseCategoryFragment : PreferenceFragmentCompat() {
     }
 
     override fun onCreatePreferences(savedInstanceState : Bundle?, rootKey : String?) {
+        // The launchers used by preferences that start activities for results have to be
+        // registered before this fragment reaches the STARTED state, which is only guaranteed
+        // here; the preferences then reach them through PreferenceLaunchers when clicked
+        PreferenceLaunchers.register(this)
         onInflatePreferences()
         applySharedSettingsLogic()
         onAfterPreferencesInflated()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        PreferenceLaunchers.unregister(this)
     }
 
     /**

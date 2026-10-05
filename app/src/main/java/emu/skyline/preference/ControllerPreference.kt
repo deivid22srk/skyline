@@ -8,8 +8,6 @@ package emu.skyline.preference
 import android.content.Context
 import android.content.Intent
 import android.util.AttributeSet
-import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.preference.Preference
 import androidx.preference.Preference.SummaryProvider
 import androidx.preference.R
@@ -21,11 +19,6 @@ import emu.skyline.R as SkylineR
  * This preference is used to launch [ControllerActivity] using a preference
  */
 class ControllerPreference @JvmOverloads constructor(context : Context, attrs : AttributeSet? = null, defStyleAttr : Int = R.attr.preferenceStyle) : Preference(context, attrs, defStyleAttr) {
-    private val controllerCallback = (context as ComponentActivity).registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        inputManager.syncObjects()
-        notifyChanged()
-    }
-
     companion object {
         const val INDEX_ARG = "index"
     }
@@ -58,7 +51,18 @@ class ControllerPreference @JvmOverloads constructor(context : Context, attrs : 
     }
 
     /**
+     * Called by [PreferenceLaunchers] when the [ControllerActivity] launched by [onClick] finishes
+     */
+    fun onControllerConfigured() {
+        inputManager.syncObjects()
+        notifyChanged()
+    }
+
+    /**
      * This launches [ControllerActivity] on click to configure the controller
      */
-    override fun onClick() = controllerCallback.launch(Intent(context, ControllerActivity::class.java).putExtra(INDEX_ARG, index))
+    override fun onClick() {
+        PreferenceLaunchers.pendingController = this
+        PreferenceLaunchers.controller?.launch(Intent(context, ControllerActivity::class.java).putExtra(INDEX_ARG, index))
+    }
 }

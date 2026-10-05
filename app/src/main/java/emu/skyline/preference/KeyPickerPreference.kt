@@ -7,9 +7,8 @@ package emu.skyline.preference
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.util.AttributeSet
-import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.preference.Preference
 import com.google.android.material.snackbar.Snackbar
 import emu.skyline.KeyReader
@@ -18,18 +17,24 @@ import emu.skyline.settings.SettingsActivity
 import emu.skyline.di.getSettings
 
 class KeyPickerPreference @JvmOverloads constructor(context : Context, attrs : AttributeSet? = null, defStyleAttr : Int = androidx.preference.R.attr.preferenceStyle) : Preference(context, attrs, defStyleAttr) {
-    private val documentPicker = (context as ComponentActivity).registerForActivityResult(ActivityResultContracts.OpenDocument()) {
-        it?.let { uri ->
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    /**
+     * Called by [PreferenceLaunchers] with the result of the document picker started by [onClick]
+     */
+    fun onKeyPicked(uri : Uri?) {
+        uri ?: return
 
-            context.getSettings().refreshRequired = true
+        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
-            val result = KeyReader.import(context, uri, KeyReader.KeyType.parse(key))
-            Snackbar.make((context as SettingsActivity).binding.root, resolveImportResultString(result), Snackbar.LENGTH_LONG).show()
-        }
+        context.getSettings().refreshRequired = true
+
+        val result = KeyReader.import(context, uri, KeyReader.KeyType.parse(key))
+        Snackbar.make((context as SettingsActivity).binding.root, resolveImportResultString(result), Snackbar.LENGTH_LONG).show()
     }
 
-    override fun onClick() = documentPicker.launch(arrayOf("*/*"))
+    override fun onClick() {
+        PreferenceLaunchers.pendingKeyPicker = this
+        PreferenceLaunchers.keyPicker?.launch(arrayOf("*/*"))
+    }
 
     private fun resolveImportResultString(result : KeyReader.ImportResult) = when (result) {
         KeyReader.ImportResult.Success -> R.string.import_keys_success

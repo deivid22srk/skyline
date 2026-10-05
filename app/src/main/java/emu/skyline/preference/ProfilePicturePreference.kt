@@ -13,7 +13,6 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.util.AttributeSet
-import androidx.activity.ComponentActivity
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.preference.Preference
@@ -34,7 +33,11 @@ class ProfilePicturePreference @JvmOverloads constructor(context : Context, attr
     private val skylineFilesDir = SkylineApplication.instance.getPublicFilesDir().canonicalPath
     private val profilePictureDir = "$skylineFilesDir/switch/nand/system/save/8000000000000010/su/avators"
     private val profilePicture = "$profilePictureDir/profile_picture.jpeg"
-    private val pickMedia = (context as ComponentActivity).registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+
+    /**
+     * Called by [PreferenceLaunchers] with the result of the picture picker started by [onClick]
+     */
+    fun onPicturePicked(uri : Uri?) {
         try {
             if (uri != null) { // The user selected a picture
                 PreferenceManager.getDefaultSharedPreferences(context).edit().putString(key, profilePicture).apply()
@@ -72,7 +75,10 @@ class ProfilePicturePreference @JvmOverloads constructor(context : Context, attr
         updatePreview()
     }
 
-    override fun onClick() = pickMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    override fun onClick() {
+        PreferenceLaunchers.pendingProfilePicture = this
+        PreferenceLaunchers.profilePicture?.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
 
     private fun updatePreview() {
         var drawable: BitmapDrawable? = null
