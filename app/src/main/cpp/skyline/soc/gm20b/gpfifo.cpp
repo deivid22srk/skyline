@@ -10,6 +10,7 @@
 #include <os.h>
 #include "channel.h"
 #include "macro/macro_state.h"
+#include <common/utils.h>
 
 namespace skyline::soc::gm20b {
     /**
@@ -87,7 +88,9 @@ namespace skyline::soc::gm20b {
         gpfifoEngine(state.soc->host1x.syncpoints, channelCtx),
         channelCtx(channelCtx),
         gpEntries(numEntries),
-        thread(std::thread(&ChannelGpfifo::Run, this)) {}
+        lastProgressNs(util::GetTimeNs()),
+        thread(std::thread(&ChannelGpfifo::Run, this)),
+        stallWatchdog(std::thread(&ChannelGpfifo::StallWatchdog, this)) {}
 
     void ChannelGpfifo::SendFull(u32 method, GpfifoArgument argument, SubchannelId subChannel, bool lastCall) {
         if (method < engine::GPFIFO::RegisterCount) {
@@ -378,6 +381,7 @@ namespace skyline::soc::gm20b {
             bool channelLocked{};
 
             gpEntries.Process([this, &channelLocked](GpEntry gpEntry) {
+                lastProgressNs.store(util::GetTimeNs(), std::memory_order_relaxed);
                 Logger::Debug("Processing pushbuffer: 0x{:X}, Size: 0x{:X}", gpEntry.Address(), +gpEntry.size);
 
                 if (!channelLocked) {
@@ -394,6 +398,7 @@ namespace skyline::soc::gm20b {
                     channelCtx.Unlock();
                     channelLocked = false;
                 }
+                lastProgressNs.store(util::GetTimeNs(), std::memory_order_relaxed);
             });
         } catch (const signal::SignalException &e) {
             if (e.signal != SIGINT) {
@@ -423,7 +428,27 @@ namespace skyline::soc::gm20b {
         gpEntries.Push(entry);
     }
 
+    void ChannelGpfifo::StallWatchdog() {
+        if (int result{pthread_setname_np(pthread_self(), "Sky-GpfifoWatch")})
+            Logger::Warn("Failed to set the thread name: {}", strerror(result));
+
+        while (!stopWatchdog.load(std::memory_order_relaxed)) {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            if (stopWatchdog.load(std::memory_order_relaxed))
+                break;
+
+            auto lastProgress{lastProgressNs.load(std::memory_order_relaxed)};
+            auto stallDuration{util::GetTimeNs() - lastProgress};
+            if (stallDuration > constant::NsInSecond * 15)
+                Logger::Warn("GPFIFO thread has made no progress for {}s (last progress at {}), likely stuck in submit/sync or GPU hung", stallDuration / constant::NsInSecond, lastProgress);
+        }
+    }
+
     ChannelGpfifo::~ChannelGpfifo() {
+        stopWatchdog.store(true, std::memory_order_relaxed);
+        if (stallWatchdog.joinable())
+            stallWatchdog.join();
+
         if (thread.joinable()) {
             pthread_kill(thread.native_handle(), SIGINT);
             thread.join();

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <common/circular_queue.h>
 #include <soc/gm20b/macro/macro_state.h>
 #include "engines/gpfifo.h"
@@ -129,7 +130,10 @@ namespace skyline::soc::gm20b {
             } state; //!< The type of method to resume
         } resumeState{};
 
+        std::atomic<i64> lastProgressNs{}; //!< Timestamp (ns) of the last progress made by the GPFIFO thread, used to diagnose stalls
         std::thread thread; //!< The thread that manages processing of pushbuffers
+        std::atomic<bool> stopWatchdog{};
+        std::thread stallWatchdog; //!< Watches `lastProgressNs` and logs when the GPFIFO thread stops making progress, differentiating a hang from an idle channel
 
         /**
          * @brief Sends a method call to the appropriate subchannel and handles macro and GPFIFO methods
@@ -155,6 +159,11 @@ namespace skyline::soc::gm20b {
          * @brief Executes all pending entries in the FIFO and polls for more
          */
         void Run();
+
+        /**
+         * @brief Polls `lastProgressNs` and logs periodically while the GPFIFO thread makes no progress, to tell a GPU/CPU hang apart from an idle channel
+         */
+        void StallWatchdog();
 
       public:
         /**

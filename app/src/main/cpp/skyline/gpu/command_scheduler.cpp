@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2021 Skyline Team and Contributors (https://github.com/skyline-emu/)
 
+#include <atomic>
 #include <gpu.h>
 #include <loader/loader.h>
 #include <vulkan/vulkan.hpp>
+#include <common/utils.h>
 #include "command_scheduler.h"
 #include "common/exception.h"
 
@@ -16,7 +18,12 @@ namespace skyline::gpu {
             signal::SetSignalHandler({SIGINT, SIGILL, SIGTRAP, SIGBUS, SIGFPE, SIGSEGV}, signal::ExceptionalSignalHandler);
 
             cycleQueue.Process([](const std::shared_ptr<FenceCycle> &cycle) {
+                auto waitStart{util::GetTimeNs()};
                 cycle->Wait(true);
+                auto waitDuration{util::GetTimeNs() - waitStart};
+                // A GPU fence taking >3s means the GPU is hung or hugely backlogged, a normal streaming wait is sub-millisecond
+                if (waitDuration > constant::NsInSecond * 3)
+                    Logger::Warn("Sky-CycleWaiter: fence wait took {}ms, GPU is stalling", waitDuration / constant::NsInMillisecond);
             }, [] {});
         } catch (const signal::SignalException &e) {
             Logger::Error("{}\nStack Trace:{}", e.what(), state.loader->GetStackTrace(e.frames));
@@ -95,6 +102,7 @@ namespace skyline::gpu {
         {
             try {
                 std::scoped_lock lock{gpu.queueMutex};
+                auto submitStart{util::GetTimeNs()};
                 gpu.vkQueue.submit(vk::SubmitInfo{
                     .commandBufferCount = 1,
                     .pCommandBuffers = &*commandBuffer,
@@ -104,6 +112,9 @@ namespace skyline::gpu {
                     .signalSemaphoreCount = static_cast<u32>(fullSignalSemaphores.size()),
                     .pSignalSemaphores = fullSignalSemaphores.data(),
                 }, cycle->fence);
+                auto submitDuration{util::GetTimeNs() - submitStart};
+                if (submitDuration > constant::NsInMillisecond * 250)
+                    Logger::Warn("vkQueueSubmit took {}ms (queue mutex contended or driver stall)", submitDuration / constant::NsInMillisecond);
             } catch (const vk::DeviceLostError &e) {
                 // Wait 5 seconds to give traces etc. time to settle
                 std::this_thread::sleep_for(std::chrono::seconds(5));

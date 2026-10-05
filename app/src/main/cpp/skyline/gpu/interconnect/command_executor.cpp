@@ -690,6 +690,8 @@ namespace skyline::gpu::interconnect {
     }
 
     void CommandExecutor::Submit(std::function<void()> &&callback, bool wait) {
+        auto submitStartTime{wait ? util::GetTimeNs() : 0};
+
         for (const auto &flushCallback : flushCallbacks)
             flushCallback();
 
@@ -750,6 +752,10 @@ namespace skyline::gpu::interconnect {
 
             std::unique_lock lock{mutex};
             cv.wait(lock, [&gpuDone] { return gpuDone; });
+
+            auto waitDuration{util::GetTimeNs() - submitStartTime};
+            if (waitDuration > constant::NsInSecond * 2)
+                Logger::Warn("CommandExecutor: blocking submit {} waited {}ms for GPU completion (sync stall)", submissionNumber, waitDuration / constant::NsInMillisecond);
         }
     }
 

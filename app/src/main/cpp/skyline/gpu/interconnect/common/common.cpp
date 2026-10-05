@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2022 Skyline Team and Contributors (https://github.com/skyline-emu/)
 
+#include <atomic>
 #include <gpu/buffer_manager.h>
 #include <soc/gm20b/channel.h>
 #include <soc/gm20b/gmmu.h>
+#include <common/utils.h>
 #include "common.h"
 
 namespace skyline::gpu::interconnect {
@@ -49,11 +51,17 @@ namespace skyline::gpu::interconnect {
 
     static void FlushHostCallback() {
         // TODO: here we should trigger `Execute()`, however that doesn't currently work due to Read being called mid-draw and attached objects not handling this case
-        Logger::Warn("GPU dirty buffer reads for attached buffers are unimplemented");
+        static std::atomic<u32> warnCount{};
+        if (warnCount.fetch_add(1, std::memory_order_relaxed) < 8)
+            Logger::Warn("GPU dirty buffer reads for attached buffers are unimplemented");
     }
 
     void ConstantBuffer::Read(CommandExecutor &executor, span<u8> dstBuffer, size_t srcOffset) {
+        auto readStart{util::GetTimeNs()};
         ContextLock lock{executor.tag, view};
         view.Read(lock.IsFirstUsage(), FlushHostCallback, dstBuffer, srcOffset);
+        auto readDuration{util::GetTimeNs() - readStart};
+        if (readDuration > constant::NsInSecond)
+            Logger::Warn("ConstantBuffer::Read blocked for {}ms (possible GPU sync stall)", readDuration / constant::NsInMillisecond);
     }
 }
