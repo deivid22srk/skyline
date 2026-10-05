@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Bövebben</string>
     <string name="undo">Visszavonás</string>
+    <!-- Settings categories -->
+    <string name="about">Névjegy</string>
+    <string name="settings_category_content_summary">Belső könyvtár, keresési hely és kulcsok</string>
+    <string name="settings_category_appearance_summary">Téma, nyelv és a játékok megjelenítése</string>
+    <string name="settings_category_system_summary">Konzolprofil, régió, nyelv és hang</string>
+    <string name="settings_category_display_summary">Teljesítmény-statisztikák, tájolás és képarány</string>
+    <string name="settings_category_gpu_summary">GPU-illesztőprogram, shaderek és grafikai beállítások</string>
+    <string name="settings_category_hacks_summary">Kísérleti megoldások</string>
+    <string name="settings_category_debug_summary">Naplózás és ellenőrzés</string>
+    <string name="settings_category_input_summary">Vezérlőprofilok és hozzárendelések</string>
+    <string name="settings_category_about_summary">Közreműködők és licencek</string>
 </resources>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <Preference
+        app:key="screen_content"
+        app:icon="@drawable/ic_settings_content"
+        app:summary="@string/settings_category_content_summary"
+        app:title="@string/content" />
+    <Preference
+        app:key="screen_appearance"
+        app:icon="@drawable/ic_settings_appearance"
+        app:summary="@string/settings_category_appearance_summary"
+        app:title="@string/appearance" />
+    <Preference
+        app:key="screen_system"
+        app:icon="@drawable/ic_settings_system"
+        app:summary="@string/settings_category_system_summary"
+        app:title="@string/system" />
+    <Preference
+        app:key="screen_display"
+        app:icon="@drawable/ic_settings_display"
+        app:summary="@string/settings_category_display_summary"
+        app:title="@string/display" />
+    <Preference
+        app:key="screen_gpu"
+        app:icon="@drawable/ic_settings_gpu"
+        app:summary="@string/settings_category_gpu_summary"
+        app:title="@string/gpu" />
+    <Preference
+        app:key="screen_hacks"
+        app:icon="@drawable/ic_settings_hacks"
+        app:summary="@string/settings_category_hacks_summary"
+        app:title="@string/hacks" />
+    <Preference
+        app:key="screen_debug"
+        app:icon="@drawable/ic_settings_debug"
+        app:summary="@string/settings_category_debug_summary"
+        app:title="@string/debug" />
+    <Preference
+        app:key="screen_input"
+        app:icon="@drawable/ic_settings_input"
+        app:summary="@string/settings_category_input_summary"
+        app:title="@string/input" />
+    <Preference
+        app:key="screen_about"
+        app:icon="@drawable/ic_settings_about"
+        app:summary="@string/settings_category_about_summary"
+        app:title="@string/about" />
+</androidx.preference.PreferenceScreen>

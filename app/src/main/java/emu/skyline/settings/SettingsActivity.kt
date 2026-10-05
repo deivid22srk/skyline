@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.text.TextUtils
 import android.view.KeyEvent
 import android.view.Menu
+import android.view.MenuItem
 import android.view.ViewTreeObserver
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -19,9 +20,8 @@ import androidx.core.view.WindowCompat
 import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
-import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.forEach
+import androidx.fragment.app.FragmentManager
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.internal.ToolbarUtils
 import emu.skyline.BuildConfig
@@ -35,6 +35,7 @@ import emu.skyline.preference.dialog.ListPreferenceMaterialDialogFragmentCompat
 import emu.skyline.utils.WindowInsetsHelper
 
 private const val PREFERENCE_DIALOG_FRAGMENT_TAG = "androidx.preference.PreferenceFragment.DIALOG"
+private const val QUERY_KEY = "current_query"
 
 class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPreferenceDisplayDialogCallback {
     val binding by lazy { SettingsActivityBinding.inflate(layoutInflater) }
@@ -45,18 +46,23 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
     }
 
     /**
-     * The instance of [PreferenceFragmentCompat] that is shown inside [R.id.settings]
-     * Retrieves extras from the intent if any and instantiates the appropriate fragment
+     * The current search query, preserved across configuration changes
      */
-    private val preferenceFragment by lazy {
+    var currentQuery : String = ""
+
+    /**
+     * The fragment shown at the root of the settings navigation: the categories menu for global
+     * settings or the per-game settings for a specific game
+     */
+    private val rootFragment by lazy {
         if (intent.hasExtra(AppItemTag))
             GameSettingsFragment().apply { arguments = intent.extras }
         else
-            GlobalSettingsFragment()
+            SettingsCategoriesFragment()
     }
 
     /**
-     * This initializes all of the elements in the activity and displays the settings fragment
+     * This initializes all of the elements in the activity and displays the root settings fragment
      */
     override fun onCreate(savedInstanceState : Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,10 +123,27 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
         // Reset the subtitle to null
         supportActionBar?.subtitle = null
 
-        supportFragmentManager
-            .beginTransaction()
-            .replace(R.id.settings, preferenceFragment)
-            .commit()
+        if (savedInstanceState != null)
+            currentQuery = savedInstanceState.getString(QUERY_KEY) ?: ""
+
+        if (savedInstanceState == null) {
+            supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.settings, rootFragment)
+                .commit()
+        } else if (currentQuery.isNotEmpty() && supportFragmentManager.findFragmentById(R.id.settings) is SettingsCategoriesFragment) {
+            // Restore the aggregated search screen after a configuration change; if a subscreen was
+            // on top it is restored by the fragment manager and keeps its own back stack
+            supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.settings, SearchableSettingsFragment())
+                .commit()
+        }
+    }
+
+    override fun onSaveInstanceState(outState : Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(QUERY_KEY, currentQuery)
     }
 
     override fun onCreateOptionsMenu(menu : Menu?) : Boolean {
@@ -143,36 +166,78 @@ class SettingsActivity : AppCompatActivity(), PreferenceFragmentCompat.OnPrefere
             }
 
             override fun onQueryTextChange(newText : String) : Boolean {
-                val queries = newText.split(",")
-                if (newText.isNotEmpty()) {
-                    preferenceFragment.preferenceScreen.forEach { preferenceCategory ->
-                        if (hiddenCategoriesFromSearch.contains(preferenceCategory.key)) {
-                            preferenceCategory.isVisible = false
-                            return@forEach
-                        }
-                        val queryMatchesCategory = queries.any { preferenceCategory.title?.contains(it, true) ?: false }
-                        // Tracks whether all preferences under this category are hidden
-                        var areAllPrefsHidden = true
-                        (preferenceCategory as PreferenceCategory).forEach { preference ->
-                            preference.isVisible = queryMatchesCategory || queries.any { preference.title?.contains(it, true) ?: false }
-                            if (preference.isVisible && areAllPrefsHidden)
-                                areAllPrefsHidden = false
-                        }
-                        // Hide PreferenceCategory if none of its preferences match the search and neither the category title
-                        preferenceCategory.isVisible = !areAllPrefsHidden || queryMatchesCategory
-                    }
-                } else { // If user input is empty, show all preferences
-                    preferenceFragment.preferenceScreen.forEach { preferenceCategory ->
-                        preferenceCategory.isVisible = true
-                        (preferenceCategory as PreferenceCategory).forEach { preference ->
-                            preference.isVisible = true
-                        }
-                    }
+                currentQuery = newText
+                val fragmentManager = supportFragmentManager
+                when (val current = fragmentManager.findFragmentById(R.id.settings)) {
+                    is GameSettingsFragment ->
+                        // The per-game settings are a single list, filter it in place
+                        current.applySearchFilter(newText, hiddenCategoriesFromSearch)
+                    is SearchableSettingsFragment ->
+                        if (newText.isEmpty())
+                            showCategories()
+                        else
+                            current.applySearchFilter(newText, hiddenCategoriesFromSearch)
+                    else ->
+                        // While browsing the categories or a subscreen, a non-empty query opens the
+                        // aggregated search screen that filters preferences from every category
+                        if (newText.isNotEmpty())
+                            showSearchResults()
                 }
                 return true
             }
         })
         return super.onCreateOptionsMenu(menu)
+    }
+
+    /**
+     * Navigates to a global settings category subscreen, optionally scrolling to and highlighting
+     * the preference with [focusKey]
+     */
+    fun showScreen(screen : GlobalCategoryFragment.Screen, focusKey : String? = null) {
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.slide_in_right, R.anim.slide_out_left, R.anim.slide_in_left, R.anim.slide_out_right)
+            .replace(R.id.settings, GlobalCategoryFragment.newInstance(screen, focusKey))
+            .addToBackStack(null)
+            .commit()
+    }
+
+    /**
+     * Swaps the fragment back to the categories menu when the search query is cleared
+     */
+    private fun showCategories() {
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.fade_in, R.anim.fade_out)
+            .replace(R.id.settings, SettingsCategoriesFragment())
+            .commit()
+    }
+
+    /**
+     * Shows the aggregated search screen, dropping any subscreen currently on the back stack
+     */
+    private fun showSearchResults() {
+        val fragmentManager = supportFragmentManager
+        if (fragmentManager.backStackEntryCount > 0)
+            fragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        fragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.fade_in, R.anim.fade_out)
+            .replace(R.id.settings, SearchableSettingsFragment())
+            .commit()
+    }
+
+    /**
+     * Updates the toolbar title, used by the fragments to reflect the visible screen
+     */
+    fun setToolbarTitle(titleRes : Int) {
+        supportActionBar?.setTitle(titleRes)
+    }
+
+    override fun onOptionsItemSelected(item : MenuItem) : Boolean {
+        return if (item.itemId == android.R.id.home) {
+            onBackPressedDispatcher.onBackPressed()
+            true
+        } else {
+            super.onOptionsItemSelected(item)
+        }
     }
 
     /**

@@ -233,4 +233,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">확장하다</string>
     <string name="undo">실행 취소</string>
+    <!-- Settings categories -->
+    <string name="about">정보</string>
+    <string name="settings_category_content_summary">내부 디렉터리, 검색 위치 및 키</string>
+    <string name="settings_category_appearance_summary">테마, 언어 및 게임 표시</string>
+    <string name="settings_category_system_summary">콘솔 프로필, 지역, 언어 및 오디오</string>
+    <string name="settings_category_display_summary">성능 통계, 화면 방향 및 화면 비율</string>
+    <string name="settings_category_gpu_summary">GPU 드라이버, 셰이더 및 그래픽 옵션</string>
+    <string name="settings_category_hacks_summary">실험적 해결 방법</string>
+    <string name="settings_category_debug_summary">로깅 및 유효성 검사</string>
+    <string name="settings_category_input_summary">컨트롤러 프로필 및 매핑</string>
+    <string name="settings_category_about_summary">크레딧 및 라이선스</string>
 </resources>

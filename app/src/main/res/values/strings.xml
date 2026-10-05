@@ -263,4 +263,15 @@
     <string name="expand_button_title" tools:override="true">Expand</string>
     <string name="undo">Undo</string>
     <string name="per_game_settings_active_message">Per-game settings are active</string>
+    <!-- Settings categories -->
+    <string name="about">About</string>
+    <string name="settings_category_content_summary">Internal directory, search location and keys</string>
+    <string name="settings_category_appearance_summary">Theme, language and game display</string>
+    <string name="settings_category_system_summary">Console profile, region, language and audio</string>
+    <string name="settings_category_display_summary">Performance overlay, orientation and aspect ratio</string>
+    <string name="settings_category_gpu_summary">GPU driver, shaders and graphics options</string>
+    <string name="settings_category_hacks_summary">Experimental workarounds</string>
+    <string name="settings_category_debug_summary">Logging and validation</string>
+    <string name="settings_category_input_summary">Controller profiles and mappings</string>
+    <string name="settings_category_about_summary">Credits and licenses</string>
 </resources>

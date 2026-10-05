@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Erweitern</string>
     <string name="undo">Rückgängig</string>
+    <!-- Settings categories -->
+    <string name="about">Über</string>
+    <string name="settings_category_content_summary">Internes Verzeichnis, Suchort und Keys</string>
+    <string name="settings_category_appearance_summary">Design, Sprache und Spieleanzeige</string>
+    <string name="settings_category_system_summary">Konsolenprofil, Region, Sprache und Audio</string>
+    <string name="settings_category_display_summary">Leistungsanzeige, Ausrichtung und Seitenverhältnis</string>
+    <string name="settings_category_gpu_summary">GPU-Treiber, Shader und Grafikoptionen</string>
+    <string name="settings_category_hacks_summary">Experimentelle Problemumgehungen</string>
+    <string name="settings_category_debug_summary">Protokollierung und Validierung</string>
+    <string name="settings_category_input_summary">Controller-Profile und Zuordnungen</string>
+    <string name="settings_category_about_summary">Mitwirkende und Lizenzen</string>
 </resources>

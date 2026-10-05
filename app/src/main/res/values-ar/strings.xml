@@ -217,4 +217,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">توسيع</string>
     <string name="undo">إلغاء</string>
+    <!-- Settings categories -->
+    <string name="about">حول</string>
+    <string name="settings_category_content_summary">الدليل الداخلي وموقع البحث والمفاتيح</string>
+    <string name="settings_category_appearance_summary">المظهر واللغة وعرض الألعاب</string>
+    <string name="settings_category_system_summary">ملف الكونسول والمنطقة واللغة والصوت</string>
+    <string name="settings_category_display_summary">إحصاءات الأداء واتجاه الشاشة ونسبة العرض إلى الارتفاع</string>
+    <string name="settings_category_gpu_summary">برنامج تشغيل GPU والشيدر وخيارات الرسومات</string>
+    <string name="settings_category_hacks_summary">حلول تجريبية</string>
+    <string name="settings_category_debug_summary">التسجيل والتحقق</string>
+    <string name="settings_category_input_summary">ملفات تعريف وحدات التحكم وارتباطاتها</string>
+    <string name="settings_category_about_summary">الشكر والتراخيص</string>
 </resources>

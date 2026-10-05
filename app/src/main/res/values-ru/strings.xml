@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Расширить</string>
     <string name="undo">Отменить</string>
+    <!-- Settings categories -->
+    <string name="about">О программе</string>
+    <string name="settings_category_content_summary">Внутренний каталог, папка поиска и ключи</string>
+    <string name="settings_category_appearance_summary">Тема, язык и отображение игр</string>
+    <string name="settings_category_system_summary">Профиль консоли, регион, язык и звук</string>
+    <string name="settings_category_display_summary">Статистика производительности, ориентация и соотношение сторон</string>
+    <string name="settings_category_gpu_summary">Драйвер GPU, шейдеры и графические параметры</string>
+    <string name="settings_category_hacks_summary">Экспериментальные обходные пути</string>
+    <string name="settings_category_debug_summary">Журналирование и валидация</string>
+    <string name="settings_category_input_summary">Профили и привязки контроллеров</string>
+    <string name="settings_category_about_summary">Авторы и лицензии</string>
 </resources>

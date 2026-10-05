@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Luaskan</string>
     <string name="undo">Kembalikan</string>
+    <!-- Settings categories -->
+    <string name="about">Tentang</string>
+    <string name="settings_category_content_summary">Direktori internal, lokasi pencarian, dan kunci</string>
+    <string name="settings_category_appearance_summary">Tema, bahasa, dan tampilan game</string>
+    <string name="settings_category_system_summary">Profil konsol, wilayah, bahasa, dan audio</string>
+    <string name="settings_category_display_summary">Statistik performa, orientasi, dan rasio aspek</string>
+    <string name="settings_category_gpu_summary">Driver GPU, shader, dan opsi grafis</string>
+    <string name="settings_category_hacks_summary">Solusi eksperimental</string>
+    <string name="settings_category_debug_summary">Pencatatan log dan validasi</string>
+    <string name="settings_category_input_summary">Profil dan pemetaan kontroler</string>
+    <string name="settings_category_about_summary">Kredit dan lisensi</string>
 </resources>

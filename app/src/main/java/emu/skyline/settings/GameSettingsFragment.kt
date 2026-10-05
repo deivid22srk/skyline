@@ -8,26 +8,23 @@ package emu.skyline.settings
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import androidx.preference.*
+import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import emu.skyline.BuildConfig
 import emu.skyline.R
 import emu.skyline.data.AppItem
 import emu.skyline.data.AppItemTag
 import emu.skyline.preference.GpuDriverPreference
-import emu.skyline.utils.GpuDriverHelper
-import emu.skyline.utils.WindowInsetsHelper
 import emu.skyline.utils.serializable
 
 /**
  * This fragment is used to display custom game preferences
  */
-class GameSettingsFragment : PreferenceFragmentCompat() {
+class GameSettingsFragment : BaseCategoryFragment() {
     private val item by lazy { requireArguments().serializable<AppItem>(AppItemTag)!! }
 
     override fun onViewCreated(view : View, savedInstanceState : Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val recyclerView = view.findViewById<View>(R.id.recycler_view)
-        WindowInsetsHelper.setPadding(recyclerView, bottom = true)
 
         (activity as AppCompatActivity).supportActionBar?.subtitle = item.title
     }
@@ -35,11 +32,17 @@ class GameSettingsFragment : PreferenceFragmentCompat() {
     /**
      * This constructs the preferences from XML preference resources
      */
-    override fun onCreatePreferences(savedInstanceState : Bundle?, rootKey : String?) {
+    override fun onInflatePreferences() {
         preferenceManager.sharedPreferencesName = EmulationSettings.prefNameForTitle(item.titleId ?: item.key())
         addPreferencesFromResource(R.xml.custom_game_preferences)
-        addPreferencesFromResource(R.xml.emulation_preferences)
+        addPreferencesFromResource(R.xml.prefs_system)
+        addPreferencesFromResource(R.xml.prefs_presentation)
+        addPreferencesFromResource(R.xml.prefs_gpu)
+        addPreferencesFromResource(R.xml.prefs_hacks)
+        addPreferencesFromResource(R.xml.prefs_debug)
+    }
 
+    override fun onAfterPreferencesInflated() {
         // Toggle emulation settings enabled state based on use_custom_settings state
         listOf<Preference?>(
             findPreference("category_system"),
@@ -49,26 +52,6 @@ class GameSettingsFragment : PreferenceFragmentCompat() {
             findPreference("category_audio"),
             findPreference("category_debug")
         ).forEach { it?.dependency = "use_custom_settings" }
-
-        // Uncheck `disable_frame_throttling` if `force_triple_buffering` gets disabled
-        val disableFrameThrottlingPref = findPreference<TwoStatePreference>("disable_frame_throttling")!!
-        findPreference<TwoStatePreference>("force_triple_buffering")?.setOnPreferenceChangeListener { _, newValue ->
-            if (newValue == false)
-                disableFrameThrottlingPref.isChecked = false
-            true
-        }
-
-        // Only show validation layer setting in debug builds
-        @Suppress("SENSELESS_COMPARISON")
-        if (BuildConfig.BUILD_TYPE != "release")
-            findPreference<Preference>("validation_layer")?.isVisible = true
-
-        if (!GpuDriverHelper.supportsForceMaxGpuClocks()) {
-            val forceMaxGpuClocksPref = findPreference<TwoStatePreference>("force_max_gpu_clocks")!!
-            forceMaxGpuClocksPref.isSelectable = false
-            forceMaxGpuClocksPref.isChecked = false
-            forceMaxGpuClocksPref.summary = context!!.getString(R.string.force_max_gpu_clocks_desc_unsupported)
-        }
 
         findPreference<GpuDriverPreference>("gpu_driver")?.item = item
 

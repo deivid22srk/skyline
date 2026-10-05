@@ -229,4 +229,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">拡大</string>
     <string name="undo">元に戻す</string>
+    <!-- Settings categories -->
+    <string name="about">このアプリについて</string>
+    <string name="settings_category_content_summary">内部ディレクトリ、検索場所、キー</string>
+    <string name="settings_category_appearance_summary">テーマ、言語、ゲームの表示</string>
+    <string name="settings_category_system_summary">コンソールのプロファイル、地域、言語、オーディオ</string>
+    <string name="settings_category_display_summary">パフォーマンス表示、画面の向き、アスペクト比</string>
+    <string name="settings_category_gpu_summary">GPUドライバー、シェーダー、グラフィック設定</string>
+    <string name="settings_category_hacks_summary">実験的な回避策</string>
+    <string name="settings_category_debug_summary">ログと検証</string>
+    <string name="settings_category_input_summary">コントローラーのプロファイルと割り当て</string>
+    <string name="settings_category_about_summary">クレジットとライセンス</string>
 </resources>

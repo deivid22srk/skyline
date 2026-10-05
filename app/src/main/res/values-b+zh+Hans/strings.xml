@@ -248,4 +248,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">展开</string>
     <string name="undo">撤销</string>
+    <!-- Settings categories -->
+    <string name="about">关于</string>
+    <string name="settings_category_content_summary">内部目录、搜索位置和密钥</string>
+    <string name="settings_category_appearance_summary">主题、语言和游戏显示</string>
+    <string name="settings_category_system_summary">主机配置文件、地区、语言和音频</string>
+    <string name="settings_category_display_summary">性能统计、屏幕方向和宽高比</string>
+    <string name="settings_category_gpu_summary">GPU 驱动、着色器和图形选项</string>
+    <string name="settings_category_hacks_summary">实验性变通方案</string>
+    <string name="settings_category_debug_summary">日志和验证</string>
+    <string name="settings_category_input_summary">控制器配置文件和映射</string>
+    <string name="settings_category_about_summary">制作人员和许可证</string>
 </resources>

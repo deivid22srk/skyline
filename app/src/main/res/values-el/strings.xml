@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Επέκταση</string>
     <string name="undo">Ξέκανε</string>
+    <!-- Settings categories -->
+    <string name="about">Σχετικά</string>
+    <string name="settings_category_content_summary">Εσωτερικός κατάλογος, τοποθεσία αναζήτησης και κλειδιά</string>
+    <string name="settings_category_appearance_summary">Θέμα, γλώσσα και εμφάνιση παιχνιδιών</string>
+    <string name="settings_category_system_summary">Προφίλ κονσόλας, περιοχή, γλώσσα και ήχος</string>
+    <string name="settings_category_display_summary">Στατιστικά επιδόσεων, προσανατολισμός και αναλογία οθόνης</string>
+    <string name="settings_category_gpu_summary">Πρόγραμμα οδήγησης GPU, shaders και επιλογές γραφικών</string>
+    <string name="settings_category_hacks_summary">Πειραματικές λύσεις</string>
+    <string name="settings_category_debug_summary">Καταγραφή και επικύρωση</string>
+    <string name="settings_category_input_summary">Προφίλ χειριστηρίων και αντιστοιχίσεις</string>
+    <string name="settings_category_about_summary">Συντελεστές και άδειες</string>
 </resources>

@@ -217,4 +217,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">விரி</string>
     <string name="undo">உண்டோ</string>
+    <!-- Settings categories -->
+    <string name="about">பற்றி</string>
+    <string name="settings_category_content_summary">உள் அடைவு, தேடல் இடம் மற்றும் விசைகள்</string>
+    <string name="settings_category_appearance_summary">தீம், மொழி மற்றும் விளையாட்டுக் காட்சி</string>
+    <string name="settings_category_system_summary">கன்சோல் சுயவிவரம், பிராந்தியம், மொழி மற்றும் ஆடியோ</string>
+    <string name="settings_category_display_summary">செயல்திறன் புள்ளிவிவரங்கள், திசையமைப்பு மற்றும் விகிதம்</string>
+    <string name="settings_category_gpu_summary">GPU இயக்கி, ஷேடர்கள் மற்றும் கிராஃபிக் விருப்பங்கள்</string>
+    <string name="settings_category_hacks_summary">சோதனை முறை தீர்வுகள்</string>
+    <string name="settings_category_debug_summary">பதிவு மற்றும் சரிபார்ப்பு</string>
+    <string name="settings_category_input_summary">கட்டுப்படுத்தி சுயவிவரங்கள் மற்றும் மேப்பிங்குகள்</string>
+    <string name="settings_category_about_summary">பங்களிப்பாளர்கள் மற்றும் உரிமங்கள்</string>
 </resources>

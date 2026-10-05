@@ -230,4 +230,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Espandi</string>
     <string name="undo">Annulla</string>
+    <!-- Settings categories -->
+    <string name="about">Informazioni</string>
+    <string name="settings_category_content_summary">Directory interna, posizione di ricerca e chiavi</string>
+    <string name="settings_category_appearance_summary">Tema, lingua e visualizzazione dei giochi</string>
+    <string name="settings_category_system_summary">Profilo della console, regione, lingua e audio</string>
+    <string name="settings_category_display_summary">Statistiche delle prestazioni, orientamento e proporzioni</string>
+    <string name="settings_category_gpu_summary">Driver GPU, shader e opzioni grafiche</string>
+    <string name="settings_category_hacks_summary">Soluzioni sperimentali</string>
+    <string name="settings_category_debug_summary">Registrazione e validazione</string>
+    <string name="settings_category_input_summary">Profili e mappature dei controller</string>
+    <string name="settings_category_about_summary">Crediti e licenze</string>
 </resources>

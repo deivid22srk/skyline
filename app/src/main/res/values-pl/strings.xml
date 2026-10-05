@@ -232,4 +232,15 @@
     <!--suppress AndroidLintUnusedResources -->
     <string name="expand_button_title" tools:override="true">Rozwiń</string>
     <string name="undo">Cofnij</string>
+    <!-- Settings categories -->
+    <string name="about">O aplikacji</string>
+    <string name="settings_category_content_summary">Katalog wewnętrzny, lokalizacja wyszukiwania i klucze</string>
+    <string name="settings_category_appearance_summary">Motyw, język i wyświetlanie gier</string>
+    <string name="settings_category_system_summary">Profil konsoli, region, język i dźwięk</string>
+    <string name="settings_category_display_summary">Statystyki wydajności, orientacja i proporcje ekranu</string>
+    <string name="settings_category_gpu_summary">Sterownik GPU, shadery i opcje graficzne</string>
+    <string name="settings_category_hacks_summary">Eksperymentalne obejścia</string>
+    <string name="settings_category_debug_summary">Rejestrowanie i walidacja</string>
+    <string name="settings_category_input_summary">Profile i mapowania kontrolerów</string>
+    <string name="settings_category_about_summary">Zasługi i licencje</string>
 </resources>

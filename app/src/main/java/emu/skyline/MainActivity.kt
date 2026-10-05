@@ -113,8 +113,14 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsHelper.applyToActivity(binding.root, binding.appList)
 
-        PreferenceManager.setDefaultValues(this, R.xml.app_preferences, false)
-        PreferenceManager.setDefaultValues(this, R.xml.emulation_preferences, false)
+        // Initialize default values for all settings that have them, the XMLs that don't contain
+        // any defaults (content, input, about) don't need to be included here
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_appearance, false)
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_system, false)
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_presentation, false)
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_gpu, false)
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_hacks, false)
+        PreferenceManager.setDefaultValues(this, R.xml.prefs_debug, false)
 
         adapter.apply {
             setHeaderItems(listOf(HeaderRomFilterItem(formatOrder, if (appSettings.romFormatFilter == 0) null else formatOrder[appSettings.romFormatFilter - 1]) { romFormat ->
