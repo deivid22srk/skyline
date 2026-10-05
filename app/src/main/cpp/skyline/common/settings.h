@@ -89,6 +89,7 @@ namespace skyline {
 
         // Debug
         Setting<bool> validationLayer; //!< If the vulkan validation layer is enabled
+        Setting<bool> waitIdlePerSubmit; //!< If the GPU should be waited on after every submission to isolate device lost/hangs to a single submission (debug only)
 
         Settings() = default;
 

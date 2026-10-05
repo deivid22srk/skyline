@@ -44,7 +44,8 @@ data class NativeSettings(
     var disableSubgroupShuffle : Boolean,
 
     // Debug
-    var validationLayer : Boolean
+    var validationLayer : Boolean,
+    var waitIdlePerSubmit : Boolean
 ) {
     constructor(context : Context, pref : EmulationSettings) : this(
         pref.isDocked,
@@ -66,7 +67,8 @@ data class NativeSettings(
         pref.enableFastGpuReadbackHack,
         pref.enableFastReadbackWrites,
         pref.disableSubgroupShuffle,
-        BuildConfig.BUILD_TYPE != "release" && pref.validationLayer
+        BuildConfig.BUILD_TYPE != "release" && pref.validationLayer,
+        pref.waitIdlePerSubmit
     )
 
     /**

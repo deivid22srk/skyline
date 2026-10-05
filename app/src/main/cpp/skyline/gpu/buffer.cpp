@@ -536,6 +536,34 @@ namespace skyline::gpu {
         return BufferView{delegate, offset, size};
     }
 
+    vk::BufferView Buffer::GetTexelView(vk::Format format, vk::DeviceSize offset, vk::DeviceSize size) {
+        // Find an existing texel view over the same (format, offset, size) region
+        auto it{std::find_if(texelViews.begin(), texelViews.end(), [&](const TexelViewStorage &view) {
+            return view.format == format && view.offset == offset && view.size == size;
+        })};
+        if (it != texelViews.end())
+            return *it->vkView;
+
+        vk::BufferViewCreateInfo createInfo{
+            .buffer = GetBacking(),
+            .format = format,
+            .offset = offset,
+            .range = size,
+        };
+        try {
+            return *texelViews.emplace(texelViews.end(), gpu, format, offset, size, std::move(createInfo))->vkView;
+        } catch (const vk::SystemError &error) {
+            Logger::Warn("Failed to create texel buffer view (format: {}, offset: 0x{:X}, size: 0x{:X}): {}", vk::to_string(format), offset, size, error.what());
+            return nullptr;
+        }
+    }
+
+    Buffer::TexelViewStorage::TexelViewStorage(GPU &gpu, vk::Format format, vk::DeviceSize offset, vk::DeviceSize size, vk::BufferViewCreateInfo &&createInfo)
+        : format{format},
+          offset{offset},
+          size{size},
+          vkView{gpu.vkDevice, createInfo} {}
+
     BufferView Buffer::TryGetView(span<u8> mapping) {
         if (guest->contains(mapping))
             return GetView(static_cast<vk::DeviceSize>(std::distance(guest->begin(), mapping.begin())), mapping.size());

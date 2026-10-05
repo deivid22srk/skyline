@@ -98,6 +98,19 @@ namespace skyline::gpu {
         size_t megaBufferViewAccumulatedSize{};
         MegaBufferAllocator::Allocation unifiedMegaBuffer{}; //!< An optional full-size mirror of the buffer in the megabuffer for use when the buffer is frequently updated and *all* of the buffer is frequently used. Replaces all uses of the table when active
 
+        /**
+         * @brief A cached VkBufferView over a region of this buffer, kept alive for the lifetime of the buffer (which is fence-protected)
+         */
+        struct TexelViewStorage {
+            vk::Format format;
+            vk::DeviceSize offset;
+            vk::DeviceSize size;
+            vk::raii::BufferView vkView;
+
+            TexelViewStorage(GPU &gpu, vk::Format format, vk::DeviceSize offset, vk::DeviceSize size, vk::BufferViewCreateInfo &&createInfo);
+        };
+        std::vector<TexelViewStorage> texelViews; //!< Cached texel buffer views over regions of this buffer
+
         static constexpr size_t FrequentlyLockedThreshold{2}; //!< (Staged) Threshold for the number of times a buffer can be locked (not from context locks, only normal) before it should be considered frequently locked
         size_t accumulatedCpuLockCounter{}; //!< (Staged) Number of times buffer has been locked through non-ContextLocks
 
@@ -181,6 +194,12 @@ namespace skyline::gpu {
         constexpr vk::Buffer GetBacking() {
             return backing ? backing->vkBuffer : *directBacking->vkBuffer;
         }
+
+        /**
+         * @return A cached or newly created texel buffer view (VkBufferView) over the supplied region of this buffer
+         * @note The buffer **must** be locked prior to calling this
+         */
+        vk::BufferView GetTexelView(vk::Format format, vk::DeviceSize offset, vk::DeviceSize size);
 
         /**
          * @return A span over the backing of this buffer

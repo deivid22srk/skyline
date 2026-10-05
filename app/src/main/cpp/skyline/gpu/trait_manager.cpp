@@ -213,6 +213,8 @@ namespace skyline::gpu {
 
 
         minimumStorageBufferAlignment = static_cast<u32>(deviceProperties2.get().properties.limits.minStorageBufferOffsetAlignment);
+        minTexelBufferOffsetAlignment = static_cast<u32>(deviceProperties2.get().properties.limits.minTexelBufferOffsetAlignment);
+        maxTexelBufferElements = deviceProperties2.get().properties.limits.maxTexelBufferElements;
 
         vendorId = deviceProperties2.get().properties.vendorID;
         deviceId = deviceProperties2.get().properties.deviceID;

@@ -53,6 +53,8 @@ namespace skyline::gpu {
         u32 subgroupSize{}; //!< Size of a subgroup on the host GPU
         u32 hostVisibleCoherentCachedMemoryType{std::numeric_limits<u32>::max()};
         u32 minimumStorageBufferAlignment{}; //!< Minimum alignment for storage buffers passed to shaders
+        u32 minTexelBufferOffsetAlignment{}; //!< Minimum alignment for the offset of a VkBufferView used for texel buffers
+        u64 maxTexelBufferElements{}; //!< Maximum amount of texels addressable by a single texel buffer view
 
         u32 vendorId{}; //!< The `vendorID` Vulkan property
         u32 deviceId{}; //!< The `deviceID` Vulkan property

@@ -34,6 +34,7 @@ namespace skyline::gpu::interconnect {
     class Textures {
       private:
         std::shared_ptr<TextureView> nullTextureView{};
+        std::shared_ptr<TextureView> nullStorageTextureView{}; //!< Dummy 1x1 storage image used for unsupported storage image bindings
         dirty::ManualDirtyState<TexturePoolState> texturePool;
 
         tsl::robin_map<TextureImageControl, std::shared_ptr<TextureView>, util::ObjectHash<TextureImageControl>> textureHeaderStore;
@@ -45,6 +46,23 @@ namespace skyline::gpu::interconnect {
         };
         std::vector<CacheEntry> textureHeaderCache;
 
+        struct TexelBufferCacheEntry {
+            TextureImageControl tic{}; //!< The TIC that the cached view was created from
+            u64 sequenceNumber{}; //!< The channel sequence number the cached view was resolved at
+            CachedMappedBufferView mappedView{}; //!< Guest-side buffer view for the texel buffer's mapping
+            vk::BufferView view{}; //!< Host-side texel view, owned by the underlying Buffer
+        };
+        std::vector<TexelBufferCacheEntry> texelBufferCache;
+        u32 texelBufferWarnCount{}; //!< Throttle counter for texel buffer resolution warnings
+
+        std::optional<memory::Buffer> dummyTexelBuffer; //!< Dummy buffer used for texel buffer views on devices without nullDescriptor
+        std::unique_ptr<vk::raii::BufferView> dummyTexelView;
+
+        /**
+         * @return A texel buffer view that can be bound for unresolvable texel buffers, a null view on devices supporting nullDescriptor or a dummy view otherwise
+         */
+        vk::BufferView GetNullTexelView(InterconnectContext &ctx);
+
       public:
         Textures(DirtyManager &manager, const TexturePoolState::EngineRegisters &engine);
 
@@ -53,5 +71,23 @@ namespace skyline::gpu::interconnect {
         TextureView *GetTexture(InterconnectContext &ctx, u32 index, Shader::TextureType shaderType);
 
         Shader::TextureType GetTextureType(InterconnectContext &ctx, u32 index);
+
+        /**
+         * @brief Resolves the TIC at `index` in the texture pool into a texel buffer view (VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER/STORAGE_TEXEL_BUFFER)
+         * @param storage Whether the view will be bound as a storage texel buffer rather than a uniform texel buffer
+         * @param isWritten Whether the shader may write through the view, if so the underlying buffer is marked GPU dirty
+         * @return A VkBufferView for the texel buffer, on failure a null/dummy view is returned to ensure the descriptor is always bound
+         */
+        vk::BufferView GetTexelBuffer(InterconnectContext &ctx, u32 index, bool storage, bool isWritten,
+                                      vk::PipelineStageFlagBits dstStage,
+                                      vk::PipelineStageFlags &srcStageMask, vk::PipelineStageFlags &dstStageMask);
+
+        /**
+         * @brief Resolves the TIC at `index` in the texture pool into a storage image binding (VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+         * @return An image info for the storage image, unresolvable storage images are bound as a null/dummy image to ensure the descriptor is always bound
+         */
+        vk::DescriptorImageInfo GetStorageImage(InterconnectContext &ctx, u32 index,
+                                                vk::PipelineStageFlagBits dstStage,
+                                                vk::PipelineStageFlags &srcStageMask, vk::PipelineStageFlags &dstStageMask);
     };
 }

@@ -12,5 +12,15 @@ namespace skyline::service::socket {
     class IManager : public BaseService {
       public:
         IManager(const DeviceState &state, ServiceManager &manager);
+
+        /**
+         * @brief Stub for unimplemented nsd commands (such as 0x15), returns success with no payload
+         * @note Sifu (UE4) calls command 0x15 during network subsystem initialisation, unimplemented commands are non-fatal but produce log spam
+         */
+        Result UnknownCommand(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
+
+        SERVICE_DECL(
+            SFUNC(0x15, IManager, UnknownCommand)
+        )
     };
 }

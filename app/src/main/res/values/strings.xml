@@ -138,6 +138,9 @@
     <string name="validation_layer">Enable Validation Layer</string>
     <string name="validation_layer_enabled">The Vulkan validation layer is enabled, major slowdowns are to be expected</string>
     <string name="validation_layer_disabled">The Vulkan validation layer is disabled</string>
+    <string name="wait_idle_per_submit">Wait Idle Per Submit</string>
+    <string name="wait_idle_per_submit_enabled">The GPU is waited on after every submission to isolate device lost/hangs to a single submission, major slowdowns are to be expected</string>
+    <string name="wait_idle_per_submit_disabled">The GPU is not waited on after every submission</string>
     <!-- Gpu Driver Activity -->
     <string name="gpu_driver">GPU Driver</string>
     <string name="add_gpu_driver">Add a GPU driver</string>

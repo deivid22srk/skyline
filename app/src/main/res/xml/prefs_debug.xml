@@ -17,5 +17,11 @@
             app:key="validation_layer"
             app:isPreferenceVisible="false"
             app:title="@string/validation_layer" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:summaryOff="@string/wait_idle_per_submit_disabled"
+            android:summaryOn="@string/wait_idle_per_submit_enabled"
+            app:key="wait_idle_per_submit"
+            app:title="@string/wait_idle_per_submit" />
     </PreferenceCategory>
 </androidx.preference.PreferenceScreen>

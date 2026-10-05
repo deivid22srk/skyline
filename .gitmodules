@@ -62,4 +62,4 @@
 	url = https://github.com/skyline-emu/cubeb
 [submodule "app/libraries/audio-core"]
 	path = app/libraries/audio-core
-	url = https://github.com/skyline-emu/audio-core
+	url = https://github.com/deivid22srk/audio-core

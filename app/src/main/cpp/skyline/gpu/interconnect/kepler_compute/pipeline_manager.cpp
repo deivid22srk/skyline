@@ -53,13 +53,9 @@ namespace skyline::gpu::interconnect::kepler_compute {
 
         pushBindings(vk::DescriptorType::eUniformTexelBuffer, stage.info.texture_buffer_descriptors, descriptorInfo.totalTexelBufferDescCount);
         pushBindings(vk::DescriptorType::eStorageTexelBuffer, stage.info.image_buffer_descriptors, descriptorInfo.totalTexelBufferDescCount);
-        if (descriptorInfo.totalTexelBufferDescCount > 0)
-            Logger::Warn("Image buffer descriptors are not supported");
 
         pushBindings(vk::DescriptorType::eCombinedImageSampler, stage.info.texture_descriptors, descriptorInfo.totalImageDescCount);
         pushBindings(vk::DescriptorType::eStorageImage, stage.info.image_descriptors, descriptorInfo.totalImageDescCount);
-        if (stage.info.image_descriptors.size() > 0)
-            Logger::Warn("Image descriptors are not supported");
 
         return descriptorInfo;
     }
@@ -132,6 +128,9 @@ namespace skyline::gpu::interconnect::kepler_compute {
         u32 imageIdx{};
         auto imageDescs{ctx.executor.allocator->AllocateUntracked<vk::DescriptorImageInfo>(descriptorInfo.totalImageDescCount)};
 
+        u32 texelBufferIdx{};
+        auto texelBufferViews{ctx.executor.allocator->AllocateUntracked<vk::BufferView>(descriptorInfo.totalTexelBufferDescCount)};
+
         u32 storageBufferIdx{};
         u32 bindingIdx{};
 
@@ -172,6 +171,53 @@ namespace skyline::gpu::interconnect::kepler_compute {
             }
         }};
 
+        /**
+         * @brief Adds descriptor set writes for a descriptor type that uses texel buffer views
+         */
+        auto writeTexelBufferDescs{[&](vk::DescriptorType type, const auto &descs, bool storage) {
+            for (const auto &desc : descs) {
+                constexpr bool IsWritten{requires { desc.is_written; }};
+                bool isWritten{false};
+                if constexpr (IsWritten)
+                    isWritten = desc.is_written;
+
+                writes[writeIdx++] = {
+                    .dstBinding = bindingIdx++,
+                    .descriptorCount = desc.count,
+                    .descriptorType = type,
+                    .pTexelBufferView = &texelBufferViews[texelBufferIdx],
+                };
+
+                for (u32 arrayIdx{}; arrayIdx < desc.count; arrayIdx++) {
+                    BindlessHandle handle{ReadBindlessHandle(ctx, constantBuffers, desc, arrayIdx)};
+                    texelBufferViews[texelBufferIdx++] = textures.GetTexelBuffer(ctx, handle.textureIndex, storage, isWritten,
+                                                                                 vk::PipelineStageFlagBits::eComputeShader,
+                                                                                 srcStageMask, dstStageMask);
+                }
+            }
+        }};
+
+        /**
+         * @brief Adds descriptor set writes for storage image descriptors
+         */
+        auto writeStorageImageDescs{[&](vk::DescriptorType type, const auto &descs) {
+            for (const auto &desc : descs) {
+                writes[writeIdx++] = {
+                    .dstBinding = bindingIdx++,
+                    .descriptorCount = desc.count,
+                    .descriptorType = type,
+                    .pImageInfo = &imageDescs[imageIdx],
+                };
+
+                for (u32 arrayIdx{}; arrayIdx < desc.count; arrayIdx++) {
+                    BindlessHandle handle{ReadBindlessHandle(ctx, constantBuffers, desc, arrayIdx)};
+                    imageDescs[imageIdx++] = textures.GetStorageImage(ctx, handle.textureIndex,
+                                                                      vk::PipelineStageFlagBits::eComputeShader,
+                                                                      srcStageMask, dstStageMask);
+                }
+            }
+        }};
+
         writeBufferDescs(vk::DescriptorType::eUniformBuffer, shaderStage.info.constant_buffer_descriptors,
                          [&](const Shader::ConstantBufferDescriptor &desc, size_t arrayIdx) {
                              size_t cbufIdx{desc.index + arrayIdx};
@@ -191,6 +237,10 @@ namespace skyline::gpu::interconnect::kepler_compute {
                              return binding;
                          });
 
+        writeTexelBufferDescs(vk::DescriptorType::eUniformTexelBuffer, shaderStage.info.texture_buffer_descriptors, false);
+
+        writeTexelBufferDescs(vk::DescriptorType::eStorageTexelBuffer, shaderStage.info.image_buffer_descriptors, true);
+
         writeImageDescs(vk::DescriptorType::eCombinedImageSampler, shaderStage.info.texture_descriptors,
                         [&](const Shader::TextureDescriptor &desc, size_t arrayIdx) {
                             BindlessHandle handle{ReadBindlessHandle(ctx, constantBuffers, desc, arrayIdx)};
@@ -201,7 +251,8 @@ namespace skyline::gpu::interconnect::kepler_compute {
                             return binding.first;
                         });
 
-        // Since we don't implement all descriptor types the number of writes might not match what's expected
+        writeStorageImageDescs(vk::DescriptorType::eStorageImage, shaderStage.info.image_descriptors);
+
         if (!writeIdx)
             return nullptr;
 

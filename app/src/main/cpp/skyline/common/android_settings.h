@@ -51,6 +51,7 @@ namespace skyline {
             disableSubgroupShuffle = ktSettings.GetBool("disableSubgroupShuffle");
             isAudioOutputDisabled = ktSettings.GetBool("isAudioOutputDisabled");
             validationLayer = ktSettings.GetBool("validationLayer");
+            waitIdlePerSubmit = ktSettings.GetBool("waitIdlePerSubmit");
         };
     };
 }

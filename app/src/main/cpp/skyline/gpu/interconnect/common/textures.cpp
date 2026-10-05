@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 // Copyright © 2022 Skyline Team and Contributors (https://github.com/skyline-emu/)
 
+#include <algorithm>
 #include <soc/gm20b/channel.h>
 #include <soc/gm20b/gmmu.h>
 #include <gpu/texture_manager.h>
@@ -142,7 +143,7 @@ namespace skyline::gpu::interconnect {
             TIC_FORMAT_CASE_ST(Astc12x10, Astc12x10, Unorm);
             TIC_FORMAT_CASE_ST_SRGB(Astc12x10, Astc12x10, Unorm);
             TIC_FORMAT_CASE_ST(Astc12x12, Astc12x12, Unorm);
-	        TIC_FORMAT_CASE_ST_SRGB(Astc12x12, Astc12x12, Unorm);
+                TIC_FORMAT_CASE_ST_SRGB(Astc12x12, Astc12x12, Unorm);
 
             TIC_FORMAT_CASE_ST(BC2, BC2, Unorm);
             TIC_FORMAT_CASE_ST_SRGB(BC2, BC2, Unorm);
@@ -201,13 +202,12 @@ namespace skyline::gpu::interconnect {
         };
     }
 
-    static std::shared_ptr<TextureView> CreateNullTexture(InterconnectContext &ctx) {
+    static std::shared_ptr<TextureView> CreateNullTexture(InterconnectContext &ctx, vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled) {
         constexpr texture::Format NullImageFormat{format::R8G8B8A8Unorm};
         constexpr texture::Dimensions NullImageDimensions{1, 1, 1};
         constexpr vk::ImageLayout NullImageInitialLayout{vk::ImageLayout::eUndefined};
         constexpr vk::ImageTiling NullImageTiling{vk::ImageTiling::eOptimal};
         constexpr vk::ImageCreateFlags NullImageFlags{};
-        constexpr vk::ImageUsageFlags NullImageUsage{vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled};
 
         auto vkImage{ctx.gpu.memory.AllocateImage(
             {
@@ -219,7 +219,7 @@ namespace skyline::gpu::interconnect {
                 .arrayLayers = 1,
                 .samples = vk::SampleCountFlagBits::e1,
                 .tiling = NullImageTiling,
-                .usage = NullImageUsage,
+                .usage = usage,
                 .sharingMode = vk::SharingMode::eExclusive,
                 .queueFamilyIndexCount = 1,
                 .pQueueFamilyIndices = &ctx.gpu.vkQueueFamilyIndex,
@@ -227,7 +227,7 @@ namespace skyline::gpu::interconnect {
             }
         )};
 
-        auto nullTexture{std::make_shared<Texture>(ctx.gpu, std::move(vkImage), NullImageDimensions, NullImageFormat, NullImageInitialLayout, NullImageTiling, NullImageFlags, NullImageUsage)};
+        auto nullTexture{std::make_shared<Texture>(ctx.gpu, std::move(vkImage), NullImageDimensions, NullImageFormat, NullImageInitialLayout, NullImageTiling, NullImageFlags, usage)};
         nullTexture->TransitionLayout(vk::ImageLayout::eGeneral);
         return nullTexture->GetView(vk::ImageViewType::e2D, vk::ImageSubresourceRange{
             .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -381,5 +381,133 @@ namespace skyline::gpu::interconnect {
             case TextureImageControl::TextureType::eCubeArray:
                 return Shader::TextureType::ColorArrayCube;
         }
+    }
+
+    vk::BufferView Textures::GetNullTexelView(InterconnectContext &ctx) {
+        if (ctx.gpu.traits.supportsNullDescriptor)
+            // VK_NULL_HANDLE is a valid texel buffer view with the nullDescriptor feature enabled, reads return zero and writes are discarded
+            return {};
+
+        if (!dummyTexelView) {
+            // Create a dummy 16-byte R8_UNORM texel view to bind for unresolvable texel buffers on devices without nullDescriptor
+            dummyTexelBuffer = ctx.gpu.memory.AllocateBuffer(16);
+            std::fill(dummyTexelBuffer->begin(), dummyTexelBuffer->end(), 0);
+            dummyTexelView = std::make_unique<vk::raii::BufferView>(ctx.gpu.vkDevice, vk::BufferViewCreateInfo{
+                .buffer = dummyTexelBuffer->vkBuffer,
+                .format = vk::Format::eR8Unorm,
+                .offset = 0,
+                .range = dummyTexelBuffer->size(),
+            });
+        }
+        return **dummyTexelView;
+    }
+
+    vk::BufferView Textures::GetTexelBuffer(InterconnectContext &ctx, u32 index, bool storage, bool isWritten,
+                                            vk::PipelineStageFlagBits dstStage,
+                                            vk::PipelineStageFlags &srcStageMask, vk::PipelineStageFlags &dstStageMask) {
+        auto syncBuffer{[&](BufferView &view) {
+            ctx.executor.AttachBuffer(view);
+            auto *buffer{view.GetBuffer()};
+            buffer->PopulateReadBarrier(dstStage, srcStageMask, dstStageMask);
+            if (isWritten) {
+                if (buffer->SequencedCpuBackingWritesBlocked()) {
+                    srcStageMask |= vk::PipelineStageFlagBits::eAllCommands;
+                    dstStageMask |= dstStage;
+                }
+                buffer->MarkGpuDirty(ctx.executor.usageTracker);
+            }
+            buffer->BlockSequencedCpuBackingWrites();
+        }};
+
+        auto textureHeaders{texturePool.UpdateGet(ctx).textureHeaders};
+        if (texelBufferCache.size() != textureHeaders.size())
+            texelBufferCache.resize(textureHeaders.size());
+
+        auto invalid{[&](const std::string &reason) -> vk::BufferView {
+            if (texelBufferWarnCount < 32)
+                Logger::Warn("Unusable texel buffer #{}: {}", index, reason);
+            texelBufferWarnCount++;
+            return GetNullTexelView(ctx);
+        }};
+
+        if (index >= textureHeaders.size())
+            return invalid(fmt::format("index is out of texture pool bounds (pool size: {})", textureHeaders.size()));
+
+        TextureImageControl &textureHeader{textureHeaders[index]};
+
+        auto &cached{texelBufferCache[index]};
+        if (cached.view && cached.sequenceNumber == ctx.channelCtx.channelSequenceNumber && cached.tic == textureHeader) {
+            syncBuffer(cached.mappedView.view);
+            return cached.view;
+        }
+
+        if (textureHeader.textureType != TextureImageControl::TextureType::e1DBuffer)
+            return invalid(fmt::format("TIC type is not 1D_BUFFER (type: {})", static_cast<u32>(textureHeader.textureType)));
+
+        auto format{ConvertTicFormat(textureHeader.formatWord, textureHeader.isSrgb)};
+        if (!format)
+            return invalid("TIC format is not translatable");
+
+        auto requiredFeature{storage ? vk::FormatFeatureFlagBits::eStorageTexelBuffer : vk::FormatFeatureFlagBits::eUniformTexelBuffer};
+        auto formatProps{ctx.gpu.vkPhysicalDevice.getFormatProperties(format->vkFormat)};
+        if (!(formatProps.bufferFeatures & requiredFeature))
+            return invalid(fmt::format("format {} does not support {} texel buffer views", vk::to_string(format->vkFormat), storage ? "storage" : "uniform"));
+
+        // For 1D buffer TICs the width is the buffer size in bytes
+        u64 address{textureHeader.Iova()};
+        u64 size{static_cast<u64>(textureHeader.widthMinusOne) + 1};
+        if (size == 0)
+            return invalid("TIC describes a zero-sized buffer");
+
+        // Limit the view to the largest texel buffer the host device supports
+        size = std::min<u64>(size, ctx.gpu.traits.maxTexelBufferElements * format->bpb);
+
+        cached.mappedView.Update(ctx, address, size);
+        if (!cached.mappedView.view)
+            return invalid(fmt::format("TIC address 0x{:X} is not mapped", address));
+
+        if (cached.mappedView.view.size < size)
+            return invalid(fmt::format("TIC address 0x{:X} has a split/truncated mapping (wanted 0x{:X} bytes, got 0x{:X})", address, size, cached.mappedView.view.size));
+
+        auto viewOffset{cached.mappedView.view.GetOffset()};
+        if (viewOffset & (ctx.gpu.traits.minTexelBufferOffsetAlignment - 1))
+            return invalid(fmt::format("view offset 0x{:X} isn't aligned to minTexelBufferOffsetAlignment (0x{:X})", viewOffset, ctx.gpu.traits.minTexelBufferOffsetAlignment));
+
+        auto vkView{cached.mappedView.view.GetBuffer()->GetTexelView(format->vkFormat, viewOffset, cached.mappedView.view.size)};
+        if (!vkView)
+            return invalid("VkBufferView creation failed");
+
+        cached.tic = textureHeader;
+        cached.sequenceNumber = ctx.channelCtx.channelSequenceNumber;
+        cached.view = vkView;
+
+        syncBuffer(cached.mappedView.view);
+        return vkView;
+    }
+
+    vk::DescriptorImageInfo Textures::GetStorageImage(InterconnectContext &ctx, [[maybe_unused]] u32 index,
+                                                      [[maybe_unused]] vk::PipelineStageFlagBits dstStage,
+                                                      [[maybe_unused]] vk::PipelineStageFlags &srcStageMask, [[maybe_unused]] vk::PipelineStageFlags &dstStageMask) {
+        // Storage image bindings need VK_IMAGE_USAGE_STORAGE_BIT on the backing VkImage which the texture cache doesn't set
+        // (recreating textures on usage change isn't currently implemented), so bind a dummy/null storage image rather than
+        // an invalid view to prevent the GPU from faulting on undefined descriptors
+        if (!ctx.gpu.traits.supportsNullDescriptor) {
+            if (!nullStorageTextureView)
+                nullStorageTextureView = CreateNullTexture(ctx, vk::ImageUsageFlagBits::eStorage);
+
+            ctx.executor.AttachTexture(nullStorageTextureView.get());
+            return {
+                .sampler = {},
+                .imageView = nullStorageTextureView->GetView(),
+                .imageLayout = vk::ImageLayout::eGeneral,
+            };
+        }
+
+        // With nullDescriptor enabled a null image view is valid, reads return zero and writes are discarded
+        return {
+            .sampler = {},
+            .imageView = {},
+            .imageLayout = vk::ImageLayout::eGeneral,
+        };
     }
 }

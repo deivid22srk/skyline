@@ -640,13 +640,21 @@ namespace skyline::gpu::interconnect {
             RecordFullBarrier(slot->commandBuffer);
         }
 
-        for (const auto &attachedBuffer : ranges::views::concat(attachedBuffers, preserveAttachedBuffers)) {
-            if (attachedBuffer->RequiresCycleAttach()) {
-                attachedBuffer->SynchronizeHost(); // Synchronize attached buffers from the CPU without using a staging buffer
-                cycle->AttachObject(attachedBuffer.buffer);
-                attachedBuffer->UpdateCycle(cycle);
-                attachedBuffer->AllowAllBackingWrites();
+        try {
+            for (const auto &attachedBuffer : ranges::views::concat(attachedBuffers, preserveAttachedBuffers)) {
+                if (attachedBuffer->RequiresCycleAttach()) {
+                    attachedBuffer->SynchronizeHost(); // Synchronize attached buffers from the CPU without using a staging buffer
+                    cycle->AttachObject(attachedBuffer.buffer);
+                    attachedBuffer->UpdateCycle(cycle);
+                    attachedBuffer->AllowAllBackingWrites();
+                }
             }
+        } catch (const exception &e) {
+            // Enrich device lost/other submission failures with context to help isolate the offending submission
+            if (std::string_view(e.what()).find("DEVICE_LOST") != std::string_view::npos)
+                Logger::Error("Device lost during submission #{}: {} attached textures, {} attached buffers, renderPassIndex: {}, slot: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
+                              submissionNumber, attachedTextures.size(), attachedBuffers.size(), renderPassIndex, slots.size());
+            throw;
         }
 
         RotateRecordSlot();
@@ -691,6 +699,12 @@ namespace skyline::gpu::interconnect {
             TRACE_EVENT("gpu", "CommandExecutor::Submit");
             SubmitInternal();
             submissionNumber++;
+
+            if (*state.settings->waitIdlePerSubmit) {
+                // Debug: wait for the GPU to finish executing this submission to isolate device lost/hangs to a single submission
+                cycle->Wait();
+                Logger::Info("Debug waitIdle: submission {} completed", submissionNumber);
+            }
         }
 
         if (!*state.settings->useDirectMemoryImport) {
