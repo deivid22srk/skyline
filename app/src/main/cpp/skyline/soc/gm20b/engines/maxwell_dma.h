@@ -29,7 +29,12 @@ namespace skyline::soc::gm20b::engine {
 
         void DmaCopy();
 
-        void HandleSplitCopy(TranslatedAddressRange srcMappings, TranslatedAddressRange dstMappings, size_t srcSize, size_t dstSize, auto copyCallback);
+        /**
+         * @brief Translates a guest region, returning false if the region lies (partially) outside of the GMMU address space as translating such a region is undefined behavior
+         */
+        bool TryTranslateRange(TranslatedAddressRange &out, u64 address, size_t size);
+
+        void HandleSplitCopy(TranslatedAddressRange srcMappings, TranslatedAddressRange dstMappings, size_t srcSize, size_t dstSize, u64 srcAddress, u64 dstAddress, auto copyCallback);
 
         void CopyPitchToPitch();
 
