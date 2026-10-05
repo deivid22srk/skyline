@@ -45,6 +45,10 @@ jobs:
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Unknown wrapper jars exist inside the oboe submodule (OboeTester);
+          # the project's own wrapper is a known checksum. Skip global scan.
+          validate-wrappers: false
 
       - name: Install Ninja Build
         run: |
