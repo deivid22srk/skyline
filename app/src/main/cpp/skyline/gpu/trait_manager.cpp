@@ -6,7 +6,7 @@
 
 namespace skyline::gpu {
     TraitManager::TraitManager(const DeviceFeatures2 &deviceFeatures2, DeviceFeatures2 &enabledFeatures2, const std::vector<vk::ExtensionProperties> &deviceExtensions, std::vector<std::array<char, VK_MAX_EXTENSION_NAME_SIZE>> &enabledExtensions, const DeviceProperties2 &deviceProperties2, const vk::raii::PhysicalDevice &physicalDevice) : quirks(deviceProperties2.get<vk::PhysicalDeviceProperties2>().properties, deviceProperties2.get<vk::PhysicalDeviceDriverProperties>()) {
-        bool hasCustomBorderColorExt{}, hasShaderAtomicInt64Ext{}, hasShaderFloat16Int8Ext{}, hasShaderDemoteToHelperExt{}, hasVertexAttributeDivisorExt{}, hasProvokingVertexExt{}, hasPrimitiveTopologyListRestartExt{}, hasImagelessFramebuffersExt{}, hasTransformFeedbackExt{}, hasUint8IndicesExt{}, hasExtendedDynamicStateExt{}, hasRobustness2Ext{};
+        bool hasCustomBorderColorExt{}, hasShaderAtomicInt64Ext{}, hasShaderFloat16Int8Ext{}, hasShaderDemoteToHelperExt{}, hasVertexAttributeDivisorExt{}, hasProvokingVertexExt{}, hasPrimitiveTopologyListRestartExt{}, hasImagelessFramebuffersExt{}, hasTransformFeedbackExt{}, hasUint8IndicesExt{}, hasExtendedDynamicStateExt{}, hasRobustness2Ext{}, hasTexelBufferAlignmentExt{};
         bool supportsUniformBufferStandardLayout{}; // We require VK_KHR_uniform_buffer_standard_layout but assume it is implicitly supported even when not present
 
         for (auto &extension : deviceExtensions) {
@@ -60,6 +60,7 @@ namespace skyline::gpu {
                 EXT_SET("VK_EXT_transform_feedback", hasTransformFeedbackExt);
                 EXT_SET_COND("VK_EXT_extended_dynamic_state", hasExtendedDynamicStateExt, !quirks.brokenDynamicStateVertexBindings);
                 EXT_SET("VK_EXT_robustness2", hasRobustness2Ext);
+                EXT_SET("VK_EXT_texel_buffer_alignment", hasTexelBufferAlignmentExt);
             }
 
             #undef EXT_SET_COND
@@ -99,6 +100,12 @@ namespace skyline::gpu {
             FEAT_SET(vk::PhysicalDeviceRobustness2FeaturesEXT, robustImageAccess2, std::ignore)
         } else {
             enabledFeatures2.unlink<vk::PhysicalDeviceRobustness2FeaturesEXT>();
+        }
+
+        if (hasTexelBufferAlignmentExt) {
+            FEAT_SET(vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT, texelBufferAlignment, supportsTexelBufferAlignment)
+        } else {
+            enabledFeatures2.unlink<vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT>();
         }
 
         if (hasCustomBorderColorExt) {
@@ -216,6 +223,18 @@ namespace skyline::gpu {
         minTexelBufferOffsetAlignment = static_cast<u32>(deviceProperties2.get().properties.limits.minTexelBufferOffsetAlignment);
         maxTexelBufferElements = deviceProperties2.get().properties.limits.maxTexelBufferElements;
 
+        // Prefer the more expressive VK_EXT_texel_buffer_alignment (Vulkan 1.3 core) requirements which allow for single texel alignment
+        if (supportsTexelBufferAlignment) {
+            auto texelBufferAlignmentProperties{deviceProperties2.get<vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT>()};
+            uniformTexelBufferOffsetAlignment = static_cast<u32>(texelBufferAlignmentProperties.uniformTexelBufferOffsetAlignmentBytes);
+            uniformTexelBufferOffsetSingleTexelAlignment = texelBufferAlignmentProperties.uniformTexelBufferOffsetSingleTexelAlignment;
+            storageTexelBufferOffsetAlignment = static_cast<u32>(texelBufferAlignmentProperties.storageTexelBufferOffsetAlignmentBytes);
+            storageTexelBufferOffsetSingleTexelAlignment = texelBufferAlignmentProperties.storageTexelBufferOffsetSingleTexelAlignment;
+        } else {
+            uniformTexelBufferOffsetAlignment = minTexelBufferOffsetAlignment;
+            storageTexelBufferOffsetAlignment = minTexelBufferOffsetAlignment;
+        }
+
         vendorId = deviceProperties2.get().properties.vendorID;
         deviceId = deviceProperties2.get().properties.deviceID;
         driverVersion = deviceProperties2.get().properties.driverVersion;
@@ -224,8 +243,8 @@ namespace skyline::gpu {
 
     std::string TraitManager::Summary() {
         return fmt::format(
-            "\n* Supports U8 Indices: {}\n* Supports Sampler Mirror Clamp To Edge: {}\n* Supports Sampler Reduction Mode: {}\n* Supports Custom Border Color (Without Format): {}\n* Supports Anisotropic Filtering: {}\n* Supports Last Provoking Vertex: {}\n* Supports Logical Operations: {}\n* Supports Vertex Attribute Divisor: {}\n* Supports Vertex Attribute Zero Divisor: {}\n* Supports Push Descriptors: {}\n* Supports Imageless Framebuffers: {}\n* Supports Global Priority: {}\n* Supports Multiple Viewports: {}\n* Supports Shader Viewport Index: {}\n* Supports SPIR-V 1.4: {}\n* Supports Shader Invocation Demotion: {}\n* Supports 16-bit FP: {}\n* Supports 8-bit Integers: {}\n* Supports 16-bit Integers: {}\n* Supports 64-bit Integers: {}\n* Supports Atomic 64-bit Integers: {}\n* Supports Floating Point Behavior Control: {}\n* Supports Image Read Without Format: {}\n* Supports List Primitive Topology Restart: {}\n* Supports Patch List Primitive Topology Restart: {}\n* Supports Transform Feedback: {}\n* Supports Geometry Shaders: {}\n*  Supports Vertex Pipeline Stores and Atomics: {}\n* Supports Fragment Stores and Atomics: {}\n* Supports Shader Storage Image Write Without Format: {}\n*Supports Subgroup Vote: {}\n* Subgroup Size: {}\n* BCn Support: {}",
-            supportsUint8Indices, supportsSamplerMirrorClampToEdge, supportsSamplerReductionMode, supportsCustomBorderColor, supportsAnisotropicFiltering, supportsLastProvokingVertex, supportsLogicOp, supportsVertexAttributeDivisor, supportsVertexAttributeZeroDivisor, supportsPushDescriptors, supportsImagelessFramebuffers, supportsGlobalPriority, supportsMultipleViewports, supportsShaderViewportIndexLayer, supportsSpirv14, supportsShaderDemoteToHelper, supportsFloat16, supportsInt8, supportsInt16, supportsInt64, supportsAtomicInt64, supportsFloatControls, supportsImageReadWithoutFormat, supportsTopologyListRestart, supportsTopologyPatchListRestart, supportsTransformFeedback, supportsGeometryShaders, supportsVertexPipelineStoresAndAtomics, supportsFragmentStoresAndAtomics, supportsShaderStorageImageWriteWithoutFormat, supportsSubgroupVote, subgroupSize, bcnSupport.to_string()
+            "\n* Supports U8 Indices: {}\n* Supports Sampler Mirror Clamp To Edge: {}\n* Supports Sampler Reduction Mode: {}\n* Supports Custom Border Color (Without Format): {}\n* Supports Anisotropic Filtering: {}\n* Supports Last Provoking Vertex: {}\n* Supports Logical Operations: {}\n* Supports Vertex Attribute Divisor: {}\n* Supports Vertex Attribute Zero Divisor: {}\n* Supports Push Descriptors: {}\n* Supports Imageless Framebuffers: {}\n* Supports Global Priority: {}\n* Supports Multiple Viewports: {}\n* Supports Shader Viewport Index: {}\n* Supports SPIR-V 1.4: {}\n* Supports Shader Invocation Demotion: {}\n* Supports 16-bit FP: {}\n* Supports 8-bit Integers: {}\n* Supports 16-bit Integers: {}\n* Supports 64-bit Integers: {}\n* Supports Atomic 64-bit Integers: {}\n* Supports Floating Point Behavior Control: {}\n* Supports Image Read Without Format: {}\n* Supports List Primitive Topology Restart: {}\n* Supports Patch List Primitive Topology Restart: {}\n* Supports Transform Feedback: {}\n* Supports Geometry Shaders: {}\n*  Supports Vertex Pipeline Stores and Atomics: {}\n* Supports Fragment Stores and Atomics: {}\n* Supports Shader Storage Image Write Without Format: {}\n*Supports Subgroup Vote: {}\n* Supports Texel Buffer Alignment: {}\n* Subgroup Size: {}\n* BCn Support: {}",
+            supportsUint8Indices, supportsSamplerMirrorClampToEdge, supportsSamplerReductionMode, supportsCustomBorderColor, supportsAnisotropicFiltering, supportsLastProvokingVertex, supportsLogicOp, supportsVertexAttributeDivisor, supportsVertexAttributeZeroDivisor, supportsPushDescriptors, supportsImagelessFramebuffers, supportsGlobalPriority, supportsMultipleViewports, supportsShaderViewportIndexLayer, supportsSpirv14, supportsShaderDemoteToHelper, supportsFloat16, supportsInt8, supportsInt16, supportsInt64, supportsAtomicInt64, supportsFloatControls, supportsImageReadWithoutFormat, supportsTopologyListRestart, supportsTopologyPatchListRestart, supportsTransformFeedback, supportsGeometryShaders, supportsVertexPipelineStoresAndAtomics, supportsFragmentStoresAndAtomics, supportsShaderStorageImageWriteWithoutFormat, supportsSubgroupVote, supportsTexelBufferAlignment, subgroupSize, bcnSupport.to_string()
         );
     }
 

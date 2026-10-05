@@ -470,8 +470,26 @@ namespace skyline::gpu::interconnect {
             return invalid(fmt::format("TIC address 0x{:X} has a split/truncated mapping (wanted 0x{:X} bytes, got 0x{:X})", address, size, cached.mappedView.view.size));
 
         auto viewOffset{cached.mappedView.view.GetOffset()};
-        if (viewOffset & (ctx.gpu.traits.minTexelBufferOffsetAlignment - 1))
-            return invalid(fmt::format("view offset 0x{:X} isn't aligned to minTexelBufferOffsetAlignment (0x{:X})", viewOffset, ctx.gpu.traits.minTexelBufferOffsetAlignment));
+
+        // VK_EXT_texel_buffer_alignment permits a much lower (or single texel) alignment requirement for most formats. The trait fields
+        // already fall back to minTexelBufferOffsetAlignment when the extension/feature is unavailable
+        auto &traits{ctx.gpu.traits};
+        u32 requiredAlignment{storage ? traits.storageTexelBufferOffsetAlignment : traits.uniformTexelBufferOffsetAlignment};
+        if (requiredAlignment == 0)
+            requiredAlignment = 1; // A value of zero is treated as one byte (IE: no alignment requirement) by the spec
+        bool singleTexelAlignment{storage ? traits.storageTexelBufferOffsetSingleTexelAlignment : traits.uniformTexelBufferOffsetSingleTexelAlignment};
+        if (singleTexelAlignment && !format->IsCompressed()) {
+            // Single texel alignment permits aligning to the size of a single texel when it's smaller than the byte alignment, if the
+            // texel size is a multiple of three bytes then the size of a single component is used instead (Per the extension spec)
+            u32 singleTexelSize{format->bpb};
+            if (singleTexelSize % 3 == 0)
+                singleTexelSize = vk::componentBits(format->vkFormat, 0) / 8;
+            if (singleTexelSize != 0)
+                requiredAlignment = std::min(requiredAlignment, singleTexelSize);
+        }
+
+        if (viewOffset & (requiredAlignment - 1))
+            return invalid(fmt::format("view offset 0x{:X} isn't aligned to the required texel buffer alignment (0x{:X}, single texel: {})", viewOffset, requiredAlignment, singleTexelAlignment));
 
         auto vkView{cached.mappedView.view.GetBuffer()->GetTexelView(format->vkFormat, viewOffset, cached.mappedView.view.size)};
         if (!vkView)

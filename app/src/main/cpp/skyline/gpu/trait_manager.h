@@ -54,6 +54,11 @@ namespace skyline::gpu {
         u32 hostVisibleCoherentCachedMemoryType{std::numeric_limits<u32>::max()};
         u32 minimumStorageBufferAlignment{}; //!< Minimum alignment for storage buffers passed to shaders
         u32 minTexelBufferOffsetAlignment{}; //!< Minimum alignment for the offset of a VkBufferView used for texel buffers
+        bool supportsTexelBufferAlignment{}; //!< If the device exposes the more expressive texel buffer alignment requirements from VK_EXT_texel_buffer_alignment/Vulkan 1.3
+        u32 uniformTexelBufferOffsetAlignment{}; //!< Minimum alignment for the offset of a uniform texel buffer view with VK_EXT_texel_buffer_alignment (Falls back to minTexelBufferOffsetAlignment)
+        u32 storageTexelBufferOffsetAlignment{}; //!< Minimum alignment for the offset of a storage texel buffer view with VK_EXT_texel_buffer_alignment (Falls back to minTexelBufferOffsetAlignment)
+        bool uniformTexelBufferOffsetSingleTexelAlignment{}; //!< If single texel alignment is sufficient for uniform texel buffers with VK_EXT_texel_buffer_alignment
+        bool storageTexelBufferOffsetSingleTexelAlignment{}; //!< If single texel alignment is sufficient for storage texel buffers with VK_EXT_texel_buffer_alignment
         u64 maxTexelBufferElements{}; //!< Maximum amount of texels addressable by a single texel buffer view
 
         u32 vendorId{}; //!< The `vendorID` Vulkan property
@@ -103,6 +108,7 @@ namespace skyline::gpu {
             vk::PhysicalDeviceDriverProperties,
             vk::PhysicalDeviceFloatControlsProperties,
             vk::PhysicalDeviceTransformFeedbackPropertiesEXT,
+            vk::PhysicalDeviceTexelBufferAlignmentPropertiesEXT,
             vk::PhysicalDeviceSubgroupProperties>;
 
         using DeviceFeatures2 = vk::StructureChain<
@@ -120,7 +126,8 @@ namespace skyline::gpu {
             vk::PhysicalDeviceTransformFeedbackFeaturesEXT,
             vk::PhysicalDeviceIndexTypeUint8FeaturesEXT,
             vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
-            vk::PhysicalDeviceRobustness2FeaturesEXT>;
+            vk::PhysicalDeviceRobustness2FeaturesEXT,
+            vk::PhysicalDeviceTexelBufferAlignmentFeaturesEXT>;
 
         TraitManager(const DeviceFeatures2 &deviceFeatures2, DeviceFeatures2 &enabledFeatures2, const std::vector<vk::ExtensionProperties> &deviceExtensions, std::vector<std::array<char, VK_MAX_EXTENSION_NAME_SIZE>> &enabledExtensions, const DeviceProperties2 &deviceProperties2, const vk::raii::PhysicalDevice &physicalDevice);
 
