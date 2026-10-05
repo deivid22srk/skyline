@@ -57,6 +57,9 @@ jobs:
 
       - name: Install CMake & Android NDK (exact versions)
         run: |
+          # sdkmanager requires Java 17+ while the Gradle build runs on JDK 11.
+          # Runner image ships Temurin 17 (JAVA_HOME_17_X64); use it for sdkmanager only.
+          export JAVA_HOME="$JAVA_HOME_17_X64"
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "cmake;${CMAKE_VERSION}" "ndk;${NDK_VERSION}" > /dev/null
 
