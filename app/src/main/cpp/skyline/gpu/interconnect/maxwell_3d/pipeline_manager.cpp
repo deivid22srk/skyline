@@ -277,8 +277,8 @@ namespace skyline::gpu::interconnect::maxwell3d {
     static Pipeline::DescriptorInfo MakePipelineDescriptorInfo(const std::array<ShaderStage, engine::ShaderStageCount> &shaderStages, bool needsIndividualTextureBindingWrites) {
         Pipeline::DescriptorInfo descriptorInfo{};
         u16 bindingIndex{};
-        u32 texelBufferPipelineIdx{}; // Running index of all texel buffer descriptors in the pipeline so far
-        u32 storageImagePipelineIdx{}; // Running index of all storage image descriptors in the pipeline so far
+        u16 texelBufferPipelineIdx{}; // Running index of all texel buffer descriptors in the pipeline so far
+        u16 storageImagePipelineIdx{}; // Running index of all storage image descriptors in the pipeline so far
 
         for (size_t i{}; i < engine::ShaderStageCount; i++) {
             const auto &stage{shaderStages[i]};
