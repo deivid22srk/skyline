@@ -104,7 +104,7 @@ class GlobalCategoryFragment : BaseCategoryFragment() {
         scrollToPreference(preference)
         // Briefly highlight the target preference so the user spots it after scrolling
         val originalTitle = preference.title
-        val highlightColor = MaterialColors.getColor(requireContext(), com.google.android.material.R.attr.colorPrimary)
+        val highlightColor = MaterialColors.getColor(requireContext(), com.google.android.material.R.attr.colorPrimary, "GlobalCategoryFragment: colorPrimary is not set in the current theme")
         preference.title = SpannableString(originalTitle).apply {
             setSpan(ForegroundColorSpan(highlightColor), 0, length, SpannableString.SPAN_INCLUSIVE_INCLUSIVE)
             setSpan(StyleSpan(Typeface.BOLD), 0, length, SpannableString.SPAN_INCLUSIVE_INCLUSIVE)
