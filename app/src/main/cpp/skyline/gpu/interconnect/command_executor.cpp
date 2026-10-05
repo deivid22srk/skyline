@@ -652,8 +652,8 @@ namespace skyline::gpu::interconnect {
         } catch (const exception &e) {
             // Enrich device lost/other submission failures with context to help isolate the offending submission
             if (std::string_view(e.what()).find("DEVICE_LOST") != std::string_view::npos) {
-                Logger::Error("Device lost during submission #{}: {} attached textures, {} preserve textures, {} attached buffers, {} preserve buffers, renderPassIndex: {}, slots: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
-                              submissionNumber, attachedTextures.size(), preserveAttachedTextures.size(), attachedBuffers.size(), preserveAttachedBuffers.size(), renderPassIndex, slots.size());
+                Logger::Error("Device lost during submission #{}: {} attached textures, {} preserve textures, {} attached buffers, {} preserve buffers, renderPassIndex: {} - if this reproduces, enable 'Wait Idle Per Submit' in Debug settings to isolate the exact submission",
+                              submissionNumber, attachedTextures.size(), preserveAttachedTextures.size(), attachedBuffers.size(), preserveAttachedBuffers.size(), renderPassIndex);
 
                 Logger::Error("{}", e.what());
 
@@ -667,7 +667,7 @@ namespace skyline::gpu::interconnect {
 
                 size_t bufferIndex{};
                 for (const auto &buffer : ranges::views::concat(attachedBuffers, preserveAttachedBuffers))
-                    Logger::Error("  buffer[{}]: vkBuffer=0x{:X}", bufferIndex++, reinterpret_cast<uintptr_t>(static_cast<VkBuffer>(buffer->buffer->GetBacking())));
+                    Logger::Error("  buffer[{}]: vkBuffer=0x{:X}", bufferIndex++, reinterpret_cast<uintptr_t>(static_cast<VkBuffer>(buffer->GetBacking())));
             }
             throw;
         }
