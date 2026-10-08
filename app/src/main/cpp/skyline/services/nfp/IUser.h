@@ -38,12 +38,18 @@ namespace skyline::service::nfp {
         /*
          * @url https://switchbrew.org/wiki/NFC_services#AttachAvailabilityChangeEvent
          */
+        /*
+         * @url https://switchbrew.org/wiki/NFC_services#GetApplicationAreaSize
+         */
+        Result GetApplicationAreaSize(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
+
         Result AttachAvailabilityChangeEvent(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
 
         SERVICE_DECL(
             SFUNC(0x0, IUser, Initialize),
             SFUNC(0x2, IUser, ListDevices),
             SFUNC(0x13, IUser, GetState),
+            SFUNC(0x16, IUser, GetApplicationAreaSize),
             SFUNC(0x17, IUser, AttachAvailabilityChangeEvent)
         )
     };
