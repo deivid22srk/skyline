@@ -1090,10 +1090,25 @@ namespace skyline::gpu::interconnect::maxwell3d {
         if (it != map.end())
             return it->second.get();
 
+        // Diagnostic: a cache miss runs the full shader translation + SPIR-V
+        // emission + vkCreateShaderModule synchronously on the GPFIFO thread,
+        // which is the primary suspected source of the multi-hundred-ms frame
+        // stalls observed in CB4's 3D world (272ms ±304ms frametime)
+        auto compileStartTime{util::GetTimeNs()};
+
         auto bundle{std::make_unique<PipelineStateBundle>()};
         bundle->Reset(packedState);
         auto accessor{RuntimeGraphicsPipelineStateAccessor{std::move(bundle), ctx, textures, constantBuffers, shaderBinaries}};
         auto *pipeline{map.emplace(packedState, std::make_unique<Pipeline>(ctx.gpu, accessor, packedState)).first->second.get()};
+
+        i64 compileMs{(util::GetTimeNs() - compileStartTime) / constant::NsInMillisecond};
+        if (compileMs >= 1) {
+            std::string shaderHashStr;
+            for (auto hash : packedState.shaderHashes)
+                if (hash)
+                    shaderHashStr += fmt::format("0x{:X} ", hash);
+            Logger::Info("Compiled new graphics pipeline synchronously in {}ms (total {} this session, shaders: {})", compileMs, ++runtimeCompileCount, shaderHashStr);
+        }
 
         #ifdef PIPELINE_STATS
         auto sharedIt{sharedPipelines.find(pipeline->sourcePackedState.shaderHashes)};

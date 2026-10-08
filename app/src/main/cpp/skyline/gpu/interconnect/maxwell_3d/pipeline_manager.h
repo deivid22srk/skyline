@@ -269,6 +269,7 @@ namespace skyline::gpu::interconnect::maxwell3d {
     class PipelineManager {
       private:
         tsl::robin_map<PackedPipelineState, std::unique_ptr<Pipeline>, PackedPipelineStateHash> map;
+        u32 runtimeCompileCount{}; //!< Diagnostic: count of pipelines compiled outside of the startup cache load
 
         #ifdef PIPELINE_STATS
         std::unordered_map<std::array<u64, engine::PipelineCount>, std::list<Pipeline*>, util::ObjectHash<std::array<u64, engine::PipelineCount>>> sharedPipelines; //!< Maps a shader set to all pipelines sharing that same set

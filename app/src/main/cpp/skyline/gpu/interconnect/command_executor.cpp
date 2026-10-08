@@ -14,6 +14,14 @@
 #include <nce.h>
 
 namespace skyline::gpu::interconnect {
+    namespace {
+        // Diagnostic: rolling per-second submission counter. Submissions are
+        // driven by guest command processing (one or more per frame), so a
+        // collapse here quantifies frametime spikes on the GPFIFO thread
+        u32 submissionsThisSecond{};
+        i64 submissionStatsWindowStartNs{};
+    }
+
     static void RecordFullBarrier(vk::raii::CommandBuffer &commandBuffer) {
         commandBuffer.pipelineBarrier(
             vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, {}, vk::MemoryBarrier{
@@ -718,6 +726,17 @@ namespace skyline::gpu::interconnect {
             TRACE_EVENT("gpu", "CommandExecutor::Submit");
             SubmitInternal();
             submissionNumber++;
+
+            // Diagnostic: 1Hz summary of submission throughput (approximates frame rate when one submission is recorded per frame)
+            submissionsThisSecond++;
+            i64 nowNs{util::GetTimeNs()};
+            if (submissionStatsWindowStartNs == 0)
+                submissionStatsWindowStartNs = nowNs;
+            else if (nowNs - submissionStatsWindowStartNs >= constant::NsInSecond) {
+                Logger::Info("GPFIFO stats: {} submissions in {}ms", submissionsThisSecond, (nowNs - submissionStatsWindowStartNs) / constant::NsInMillisecond);
+                submissionsThisSecond = 0;
+                submissionStatsWindowStartNs = nowNs;
+            }
 
             if (*state.settings->waitIdlePerSubmit) {
                 // Debug: wait for the GPU to finish executing this submission to isolate device lost/hangs to a single submission

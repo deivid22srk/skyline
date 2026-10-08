@@ -268,7 +268,14 @@ namespace skyline::gpu::interconnect {
 
     struct SetPipelineFutureCmdImpl {
         void Record(GPU &gpu, vk::raii::CommandBuffer &commandBuffer) {
+            // Diagnostic: this get() blocks the GPFIFO thread until the
+            // pipeline finishes compiling on the worker pool; long waits here
+            // are direct evidence of synchronous-compilation frame stalls
+            auto startTime{util::GetTimeNs()};
             commandBuffer.bindPipeline(bindPoint, *pipeline.get());
+            i64 waitMs{(util::GetTimeNs() - startTime) / constant::NsInMillisecond};
+            if (waitMs >= 25)
+                Logger::Warn("GPFIFO blocked {}ms waiting for graphics pipeline compilation (sync shader stall)", waitMs);
         }
 
         std::shared_future<vk::raii::Pipeline> pipeline;
