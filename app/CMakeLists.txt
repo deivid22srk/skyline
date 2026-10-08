@@ -346,6 +346,7 @@ add_library(skyline SHARED
         ${source_DIR}/skyline/services/fssrv/IStorage.cpp
         ${source_DIR}/skyline/services/fssrv/IDirectory.cpp
         ${source_DIR}/skyline/services/fssrv/IMultiCommitManager.cpp
+        ${source_DIR}/skyline/services/fssrv/ISaveDataInfoReader.cpp
         ${source_DIR}/skyline/services/nvdrv/INvDrvServices.cpp
         ${source_DIR}/skyline/services/nvdrv/driver.cpp
         ${source_DIR}/skyline/services/nvdrv/core/nvmap.cpp
