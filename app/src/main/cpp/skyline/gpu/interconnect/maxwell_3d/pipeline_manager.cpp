@@ -900,10 +900,6 @@ namespace skyline::gpu::interconnect::maxwell3d {
                             }, false);
         }
 
-        // Since we don't implement all descriptor types the number of writes might not match what's expected
-        if (!writeIdx)
-            return nullptr;
-
         return ctx.executor.allocator->EmplaceUntracked<DescriptorUpdateInfo>(DescriptorUpdateInfo{
             .writes = writes.first(writeIdx),
             .bufferDescs = bufferDescs.first(bufferIdx),
@@ -1024,10 +1020,6 @@ namespace skyline::gpu::interconnect::maxwell3d {
                                                sampledImages[usage.entirePipelineIdx + arrayIdx] = binding.second;
                                                return binding.first;
                                            });
-
-        // Since we don't implement all descriptor types the number of writes might not match what's expected
-        if (!writeIdx)
-            return nullptr;
 
         return ctx.executor.allocator->EmplaceUntracked<DescriptorUpdateInfo>(DescriptorUpdateInfo{
             .copies = descriptorInfo.copyDescs,
