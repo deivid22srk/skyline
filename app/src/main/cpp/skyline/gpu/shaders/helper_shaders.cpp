@@ -175,7 +175,6 @@ namespace skyline::gpu {
         struct FragmentPushConstantLayout {
             glsl::Vec2 srcOriginUV;
             glsl::Vec2 dstSrcScaleFactor;
-            float srcHeightRecip;
         };
 
         constexpr static std::array<vk::PushConstantRange, 2> PushConstantRanges{
@@ -253,8 +252,7 @@ namespace skyline::gpu {
                 .dstDimensionsClipSpace = {(2.0f * dstRect.width) / dstImageDimensions.width, (2.0f * dstRect.height) / dstImageDimensions.height}
             }, blit::FragmentPushConstantLayout{
                 .srcOriginUV = {srcRect.x / srcImageDimensions.width, srcRect.y / srcImageDimensions.height},
-                .dstSrcScaleFactor = {dstSrcScaleFactorX * (srcRect.width / srcImageDimensions.width), dstSrcScaleFactorY * (srcRect.height / srcImageDimensions.height)},
-                .srcHeightRecip = 1.0f / srcImageDimensions.height
+                .dstSrcScaleFactor = {dstSrcScaleFactorX * (srcRect.width / srcImageDimensions.width), dstSrcScaleFactorY * (srcRect.height / srcImageDimensions.height)}
             },
             GetPipeline(gpu,
                         {dstImageView->format->vkFormat,
