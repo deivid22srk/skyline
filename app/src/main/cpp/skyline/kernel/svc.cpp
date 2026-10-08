@@ -876,7 +876,37 @@ namespace skyline::kernel::svc {
         if (string.back() == '\n')
             string.remove_suffix(1);
 
-        Logger::Info("{}", string);
+        // Some engines (UE4's SwitchPlatformMisc::LocalPrint, e.g. Crash
+        // Bandicoot 4) emit hundreds of near-identical debug strings per
+        // second through this SVC, flooding the log file and hiding real
+        // diagnostics. Fold the spam inside a time window: pass the first
+        // message through, count the rest, and summarise when the window
+        // rolls over.
+        static std::mutex foldMutex;
+        static i64 windowStartMs{};
+        static u32 windowSuppressed{};
+        static std::string windowFirst;
+
+        constexpr i64 FoldWindowMs{1000};
+        constexpr size_t MaxLoggedLength{120};
+
+        bool logNow{false};
+        {
+            std::scoped_lock foldLock{foldMutex};
+            i64 nowMs{util::GetTimeNs() / constant::NsInMillisecond};
+            if (windowStartMs == 0 || nowMs - windowStartMs >= FoldWindowMs) {
+                if (windowSuppressed)
+                    Logger::Info("Guest debug output: suppressed {} messages in the previous {}ms window (first: '{}')", windowSuppressed, FoldWindowMs, windowFirst.substr(0, MaxLoggedLength));
+                windowStartMs = nowMs;
+                windowSuppressed = 0;
+                windowFirst = string;
+                logNow = true; // Always pass through the first message of each window
+            } else {
+                windowSuppressed++;
+            }
+        }
+        if (logNow)
+            Logger::Info("{}", string);
         state.ctx->gpr.w0 = Result{};
     }
 

@@ -33,6 +33,7 @@ namespace skyline {
             std::mutex mutex; //!< Synchronizes all output I/O to ensure there are no races
             std::ofstream logFile; //!< An output stream to the log file
             i64 start; //!< A timestamp in milliseconds for when the logger was started, this is used as the base for all log timestamps
+            i64 lastFlush{}; //!< Timestamp in milliseconds of the last flush, used to bound the amount of log data lost when the process is killed
 
             LoggerContext() {}
 

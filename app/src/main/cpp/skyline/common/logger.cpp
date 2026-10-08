@@ -13,6 +13,7 @@ namespace skyline {
 
     void Logger::LoggerContext::Finalize() {
         std::scoped_lock lock{mutex};
+        logFile.flush();
         logFile.close();
     }
 
@@ -66,6 +67,16 @@ namespace skyline {
 
     void Logger::LoggerContext::Write(const std::string &str) {
         std::scoped_lock guard{mutex};
+        if (!logFile.is_open())
+            return;
         logFile << str;
+        // Periodically flush so that the log on disk survives the process being
+        // SIGKILLed (Android users routinely force-stop emulated games). Without
+        // this, everything still sitting in the ofstream's internal buffer is
+        // lost: the CB4 diagnosis showed the shared log ending mid-word at ~20KB
+        // because only buffer-full boundaries had ever reached the disk.
+        i64 now{util::GetTimeNs() / constant::NsInMillisecond};
+        if (now - lastFlush >= constant::LogFlushIntervalMs)
+            logFile.flush(), lastFlush = now;
     }
 }
