@@ -80,7 +80,8 @@ Foram identificados 97 commits de núcleo do Strato desde o ancestral comum e an
 |-----|------|------|--------|
 | [37362682453](https://github.com/deivid22srk/skyline/actions/runs/37362682453) | `9c39760f` | baseline (pré-port) | SUCCESS |
 | [37775436450](https://github.com/deivid22srk/skyline/actions/runs/37775436450) | `a90d7d78` | lote 1 (bugfixes núcleo) | **SUCCESS** |
-| (run do lote 2) | `d81a481c` | lote 2 (serviços) | disparado via workflow_dispatch — conferir status na aba Actions |
+| [37779136649](https://github.com/deivid22srk/skyline/actions/runs/37779136649) | `d81a481c` | lote 2 (serviços — todo o código portado) | **SUCCESS** |
+| [37781488659](https://github.com/deivid22srk/skyline/actions/runs/37781488659) | `200b2ea8` | tip da branch (docs-only) | disparado (docs não afetam o build; resultado confirmatório) |
 
 Nada foi compilado localmente (regra da operação); validação exclusivamente pelo CI.
 
