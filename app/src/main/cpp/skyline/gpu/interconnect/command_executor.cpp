@@ -736,8 +736,8 @@ namespace skyline::gpu::interconnect {
             i64 nowNs{util::GetTimeNs()};
             if (submissionStatsWindowStartNs == 0)
                 submissionStatsWindowStartNs = nowNs;
-            else if (nowNs - submissionStatsWindowStartNs >= constant::NsInSecond) {
-                Logger::Info("GPFIFO stats: {} submissions in {}ms", submissionsThisSecond, (nowNs - submissionStatsWindowStartNs) / constant::NsInMillisecond);
+            else if (nowNs - submissionStatsWindowStartNs.load(std::memory_order_relaxed) >= constant::NsInSecond) {
+                Logger::Info("GPFIFO stats: {} submissions in {}ms", submissionsThisSecond.load(std::memory_order_relaxed), (nowNs - submissionStatsWindowStartNs.load(std::memory_order_relaxed)) / constant::NsInMillisecond);
                 submissionsThisSecond = 0;
                 submissionStatsWindowStartNs = nowNs;
             }
