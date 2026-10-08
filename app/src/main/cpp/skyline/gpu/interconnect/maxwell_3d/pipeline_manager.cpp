@@ -1102,12 +1102,13 @@ namespace skyline::gpu::interconnect::maxwell3d {
         auto *pipeline{map.emplace(packedState, std::make_unique<Pipeline>(ctx.gpu, accessor, packedState)).first->second.get()};
 
         i64 compileMs{(util::GetTimeNs() - compileStartTime) / constant::NsInMillisecond};
+        u32 compileTotal{++runtimeCompileCount};
         if (compileMs >= 1) {
             std::string shaderHashStr;
             for (auto hash : packedState.shaderHashes)
                 if (hash)
                     shaderHashStr += fmt::format("0x{:X} ", hash);
-            Logger::Info("Compiled new graphics pipeline synchronously in {}ms (total {} this session, shaders: {})", compileMs, ++runtimeCompileCount, shaderHashStr);
+            Logger::Info("Compiled new graphics pipeline synchronously in {}ms (total {} this session, shaders: {})", compileMs, compileTotal, shaderHashStr);
         }
 
         #ifdef PIPELINE_STATS

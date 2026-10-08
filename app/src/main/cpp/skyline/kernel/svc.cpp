@@ -891,20 +891,26 @@ namespace skyline::kernel::svc {
         constexpr size_t MaxLoggedLength{120};
 
         bool logNow{false};
+        u32 pendingSummaryCount{};
+        std::string pendingSummaryFirst;
         {
             std::scoped_lock foldLock{foldMutex};
             i64 nowMs{util::GetTimeNs() / constant::NsInMillisecond};
             if (windowStartMs == 0 || nowMs - windowStartMs >= FoldWindowMs) {
-                if (windowSuppressed)
-                    Logger::Info("Guest debug output: suppressed {} messages in the previous {}ms window (first: '{}')", windowSuppressed, FoldWindowMs, windowFirst.substr(0, MaxLoggedLength));
+                if (windowSuppressed) {
+                    pendingSummaryCount = windowSuppressed;
+                    pendingSummaryFirst = windowFirst;
+                }
                 windowStartMs = nowMs;
                 windowSuppressed = 0;
-                windowFirst = string;
+                windowFirst = string.substr(0, MaxLoggedLength); // Bound the retained guest-controlled string
                 logNow = true; // Always pass through the first message of each window
             } else {
                 windowSuppressed++;
             }
         }
+        if (pendingSummaryCount)
+            Logger::Info("Guest debug output: suppressed {} messages in the previous {}ms window (first: '{}')", pendingSummaryCount, FoldWindowMs, pendingSummaryFirst);
         if (logNow)
             Logger::Info("{}", string);
         state.ctx->gpr.w0 = Result{};

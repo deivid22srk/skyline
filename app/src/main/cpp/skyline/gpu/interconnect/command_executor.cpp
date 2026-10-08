@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <atomic>
 #include <mutex>
 #include <range/v3/view.hpp>
 #include <adrenotools/driver.h>
@@ -17,9 +18,12 @@ namespace skyline::gpu::interconnect {
     namespace {
         // Diagnostic: rolling per-second submission counter. Submissions are
         // driven by guest command processing (one or more per frame), so a
-        // collapse here quantifies frametime spikes on the GPFIFO thread
-        u32 submissionsThisSecond{};
-        i64 submissionStatsWindowStartNs{};
+        // collapse here quantifies frametime spikes on the GPFIFO thread.
+        // NOTE: all Submit() call sites run under the GPU-wide channel lock
+        // (gpu.channelLock) during GPFIFO processing; if Submit is ever called
+        // from another context these must be converted to atomics
+        std::atomic<u32> submissionsThisSecond{};
+        std::atomic<i64> submissionStatsWindowStartNs{};
     }
 
     static void RecordFullBarrier(vk::raii::CommandBuffer &commandBuffer) {

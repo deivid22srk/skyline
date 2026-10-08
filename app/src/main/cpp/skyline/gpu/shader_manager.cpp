@@ -59,11 +59,6 @@ namespace {
             tlsShaderStage = StageName(stage);
         }
 
-        ShaderLogScope(u64 hash, const char *stage) : prevHash{tlsShaderHash}, prevStage{tlsShaderStage} {
-            tlsShaderHash = hash;
-            tlsShaderStage = stage;
-        }
-
         ~ShaderLogScope() {
             tlsShaderHash = prevHash;
             tlsShaderStage = prevStage;
