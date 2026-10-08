@@ -1021,6 +1021,10 @@ namespace skyline::gpu::interconnect::maxwell3d {
                                                return binding.first;
                                            });
 
+        // Since we don't implement all descriptor types the number of writes might not match what's expected
+        if (!writeIdx)
+            return nullptr;
+
         return ctx.executor.allocator->EmplaceUntracked<DescriptorUpdateInfo>(DescriptorUpdateInfo{
             .copies = descriptorInfo.copyDescs,
             .writes = writes.first(writeIdx),
