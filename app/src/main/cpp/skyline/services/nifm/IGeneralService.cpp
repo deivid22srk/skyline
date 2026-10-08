@@ -22,6 +22,16 @@ namespace skyline::service::nifm {
         return result::NoInternetConnection;
     }
 
+    Result IGeneralService::GetInternetConnectionStatus(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response) {
+        struct Status {
+            u8 type{1};
+            u8 wifiStrength{3};
+            u8 state{4};
+        } status{};
+        response.Push(status);
+        return {};
+    }
+
     Result IGeneralService::IsAnyInternetRequestAccepted(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response) {
         // We don't emulate networking so always return false
         response.Push(false);
