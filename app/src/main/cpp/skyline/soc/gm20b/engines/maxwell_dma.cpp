@@ -3,6 +3,7 @@
 // Copyright © 2022 yuzu Emulator Project (https://github.com/yuzu-emu/yuzu/)
 
 #include <algorithm>
+#include <atomic>
 #include <gpu/interconnect/command_executor.h>
 #include <gpu/texture/format.h>
 #include <gpu/texture/layout.h>
@@ -22,6 +23,12 @@ namespace skyline::soc::gm20b::engine {
         constexpr size_t MaxDmaLayerCount{65536}; //!< The maximum plausible layer count of a surface
         constexpr size_t MaxDmaCopyExtent{size_t{1} << 33}; //!< The maximum extent of a validated copy (8 GiB), anything larger is garbage
         constexpr u64 GmmuAddressSpaceEnd{1ull << GmmuAddressSpaceBits}; //!< The end of the GMMU address space
+
+        /**
+         * @brief Running totals of pitch->block-linear DMA copies, included in abort
+         * diagnostics to expose how much legitimate traffic shares the aborted address region
+         */
+        std::atomic<u64> pitchToBlockLinearOk{}, pitchToBlockLinearAborted{};
 
         /**
          * @brief Checks that a translated range is fully mapped; TranslateRange returns spans with a
@@ -328,11 +335,39 @@ namespace skyline::soc::gm20b::engine {
         }
 
         TranslatedAddressRange srcMappings, dstMappings;
-        if (!TryTranslateRange(srcMappings, *registers.offsetIn, srcSize) || !IsFullyMapped(srcMappings) ||
-            !TryTranslateRange(dstMappings, dstLayerAddress, dstExtent) || !IsFullyMapped(dstMappings)) [[unlikely]] {
-            Logger::Warn("Aborting pitch to block-linear DMA copy touching unmapped memory: src 0x{:X}-0x{:X} ({}x{}x{}, pitch {}), dst 0x{:X}-0x{:X} ({}x{}x{}, GOB 1x{}x{}, layer {}), bpp 1, layouts: pitch->block-linear", u64{*registers.offsetIn}, u64{*registers.offsetIn} + srcSize, srcDimensions.width, srcDimensions.height, srcDimensions.depth, *registers.pitchIn, dstLayerAddress, dstLayerAddress + dstExtent, dstDimensions.width, dstDimensions.height, dstDimensions.depth, registers.dstSurface->blockSize.Height(), registers.dstSurface->blockSize.Depth(), registers.dstSurface->layer);
+        bool srcTranslated{TryTranslateRange(srcMappings, *registers.offsetIn, srcSize)};
+        bool dstTranslated{srcTranslated ? TryTranslateRange(dstMappings, dstLayerAddress, dstExtent) : false};
+        if (!srcTranslated || !IsFullyMapped(srcMappings) || !dstTranslated || !IsFullyMapped(dstMappings)) [[unlikely]] {
+            pitchToBlockLinearAborted.fetch_add(1, std::memory_order_relaxed);
+            Logger::Warn("Aborting pitch to block-linear DMA copy touching unmapped memory: src 0x{:X}-0x{:X} ({}x{}x{}, pitch {}), dst 0x{:X}-0x{:X} ({}x{}x{}, GOB 1x{}x{}, layer {}), bpp 1, layouts: pitch->block-linear, totals: {} ok / {} aborted", u64{*registers.offsetIn}, u64{*registers.offsetIn} + srcSize, srcDimensions.width, srcDimensions.height, srcDimensions.depth, *registers.pitchIn, dstLayerAddress, dstLayerAddress + dstExtent, dstDimensions.width, dstDimensions.height, dstDimensions.depth, registers.dstSurface->blockSize.Height(), registers.dstSurface->blockSize.Depth(), registers.dstSurface->layer, pitchToBlockLinearOk.load(std::memory_order_relaxed), pitchToBlockLinearAborted.load(std::memory_order_relaxed));
+
+            // Detail which side failed and whether the offending pages are sparse
+            // (reserved VA with no pages committed - hardware silently discards
+            // writes there and reads return zero) or truly unmapped (hardware
+            // raises a GPU MMU fault). A sparse verdict on the dst side would
+            // indicate a legitimate copy into an uncommitted region of a
+            // streaming heap rather than a garbage address.
+            auto describeSide{[this](const char *side, bool translated, const TranslatedAddressRange &mappings, u64 base, size_t size) {
+                if (!translated) {
+                    Logger::Warn("DMA abort detail: {} side untranslatable (out of GMMU bounds): VA 0x{:X}-0x{:X} (size 0x{:X})", side, base, base + size, size);
+                    return;
+                }
+                u64 va{base};
+                for (size_t i{}; i < mappings.size(); i++) {
+                    const auto &mapping{mappings[i]};
+                    if (mapping.data() == nullptr)
+                        Logger::Warn("DMA abort detail: {} span {} VA 0x{:X}-0x{:X} (size 0x{:X}) is {}", side, i, va, va + mapping.size(), mapping.size(), channelCtx.asCtx->gmmu.IsSparseMapped(va) ? "sparse (reserved, uncommitted)" : "unmapped");
+                    va += mapping.size();
+                }
+            }};
+            if (!srcTranslated || !IsFullyMapped(srcMappings))
+                describeSide("src", srcTranslated, srcMappings, u64{*registers.offsetIn}, srcSize);
+            if (!dstTranslated || !IsFullyMapped(dstMappings))
+                describeSide("dst", dstTranslated, dstMappings, dstLayerAddress, dstExtent);
             return;
         }
+
+        pitchToBlockLinearOk.fetch_add(1, std::memory_order_relaxed);
 
         Logger::Debug("{}x{}x{}@0x{:X} -> {}x{}x{}@0x{:X}", srcDimensions.width, srcDimensions.height, srcDimensions.depth, u64{*registers.offsetIn}, dstDimensions.width, dstDimensions.height, dstDimensions.depth, dstLayerAddress);
 

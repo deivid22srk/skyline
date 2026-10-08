@@ -239,7 +239,12 @@ namespace skyline {
         VaType blockSize{std::min(successor->virt - virt, size)};
 
         while (size) {
-            if (predecessor->phys) {
+            // Sparse mappings (reserved VA with no pages committed) must be
+            // reported as unmapped here exactly like in LookupBlockLocked:
+            // their phys is a placeholder (0xCAFEBABE), not a real pointer,
+            // and handing it out as a valid span makes callers dereference it
+            // (only safe paths are GMMU::Read/Write which special-case sparse)
+            if (predecessor->phys && !predecessor->extraInfo.sparseMapped) {
                 span cpuBlock{blockPhys, blockSize};
                 if (cpuAccessCallback)
                     cpuAccessCallback(cpuBlock);
