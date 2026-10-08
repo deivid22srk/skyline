@@ -2,7 +2,6 @@
 // Copyright © 2023 Skyline Team and Contributors (https://github.com/skyline-emu/)
 
 #include "IEnsureNetworkClockAvailabilityService.h"
-#include <common/settings.h>
 
 namespace skyline::service::ntc {
     IEnsureNetworkClockAvailabilityService::IEnsureNetworkClockAvailabilityService(const DeviceState &state, ServiceManager &manager) : BaseService(state, manager),
