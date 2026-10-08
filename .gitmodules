@@ -47,7 +47,9 @@
 	url = https://github.com/yuzu-mirror/sirit
 [submodule "Shader Compiler"]
 	path = app/libraries/shader-compiler
-	url = https://github.com/strato-emu/shader-compiler
+	url = https://github.com/deivid22srk/shader-compiler
+	# Fork of strato-emu/shader-compiler (MPL-2.0), branch main =
+	# upstream 8717c8f + fec5831 (diag: disambiguated STUBBED log sites).
 [submodule "libadrenotools"]
 	path = app/libraries/adrenotools
 	url = https://github.com/bylaws/libadrenotools/
