@@ -15,6 +15,13 @@ namespace skyline::service::socket {
         IClient(const DeviceState &state, ServiceManager &manager);
 
         /**
+         * @brief Pushes a BSD-style (result, errno) response pair; a non-zero
+         * errorCode forces result to -1, mirroring the bsd service protocol
+         * @url https://switchbrew.org/wiki/Sockets_services
+         */
+        static Result PushBsdResult(ipc::IpcResponse &response, i32 result, i32 errorCode);
+
+        /**
          * @brief Initializes a socket client with the given parameters
          * @url https://switchbrew.org/wiki/Sockets_services#Initialize
          */
@@ -29,6 +36,18 @@ namespace skyline::service::socket {
          * @brief Selects the socket
          */
         Result Select(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
+
+        /**
+         * @brief Creates a socket
+         * @url https://switchbrew.org/wiki/Sockets_services#Socket
+         */
+        Result Socket(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
+
+        /**
+         * @brief Manipulates the file descriptor of a socket
+         * @url https://switchbrew.org/wiki/Sockets_services#Fcntl
+         */
+        Result Fcntl(type::KSession &session, ipc::IpcRequest &request, ipc::IpcResponse &response);
 
         /**
          * @brief Polls the socket for events
@@ -108,6 +127,7 @@ namespace skyline::service::socket {
         SERVICE_DECL(
             SFUNC(0x0, IClient, RegisterClient),
             SFUNC(0x1, IClient, StartMonitoring),
+            SFUNC(0x2, IClient, Socket),
             SFUNC(0x5, IClient, Select),
             SFUNC(0x6, IClient, Poll),
             SFUNC(0x8, IClient, Recv),
@@ -118,6 +138,7 @@ namespace skyline::service::socket {
             SFUNC(0xD, IClient, Bind),
             SFUNC(0xE, IClient, Connect),
             SFUNC(0x12, IClient, Listen),
+            SFUNC(0x14, IClient, Fcntl),
             SFUNC(0x15, IClient, SetSockOpt),
             SFUNC(0x16, IClient, Shutdown),
             SFUNC(0x17, IClient, ShutdownAllSockets),
