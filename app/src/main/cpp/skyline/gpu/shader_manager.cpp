@@ -14,17 +14,74 @@
 
 static constexpr bool DumpShaders{false};
 
+namespace {
+    // Identifies the shader currently being compiled on this thread so that
+    // diagnostics emitted from inside the shader compiler (e.g. STUBBED
+    // warnings) can be attributed to a concrete guest shader. Without this,
+    // all compiler warnings look identical in the log (see CB4 diagnosis:
+    // 44x "(STUBBED) called" with no way to tell which shader/opcode fired).
+    thread_local u64 tlsShaderHash{0};
+    thread_local const char *tlsShaderStage{nullptr};
+
+    const char *StageName(Shader::Stage stage) {
+        switch (stage) {
+            case Shader::Stage::VertexA:
+                return "vertexA";
+            case Shader::Stage::VertexB:
+                return "vertexB";
+            case Shader::Stage::TessellationControl:
+                return "tessellationControl";
+            case Shader::Stage::TessellationEval:
+                return "tessellationEval";
+            case Shader::Stage::Geometry:
+                return "geometry";
+            case Shader::Stage::Fragment:
+                return "fragment";
+            case Shader::Stage::Compute:
+                return "compute";
+            default:
+                return "unknown";
+        }
+    }
+
+    std::string AppendShaderContext(const std::string &message) {
+        if (tlsShaderHash)
+            return fmt::format("{} [shader 0x{:016X}, stage {}]", message, tlsShaderHash, tlsShaderStage ? tlsShaderStage : "unknown");
+        return message;
+    }
+
+    struct ShaderLogScope {
+        u64 prevHash;
+        const char *prevStage;
+
+        ShaderLogScope(u64 hash, Shader::Stage stage) : prevHash{tlsShaderHash}, prevStage{tlsShaderStage} {
+            tlsShaderHash = hash;
+            tlsShaderStage = StageName(stage);
+        }
+
+        ShaderLogScope(u64 hash, const char *stage) : prevHash{tlsShaderHash}, prevStage{tlsShaderStage} {
+            tlsShaderHash = hash;
+            tlsShaderStage = stage;
+        }
+
+        ~ShaderLogScope() {
+            tlsShaderHash = prevHash;
+            tlsShaderStage = prevStage;
+        }
+    };
+}
+
 namespace Shader::Log {
     void Debug(const std::string &message) {
-        skyline::Logger::Write(skyline::Logger::LogLevel::Debug, message);
+        skyline::Logger::Write(skyline::Logger::LogLevel::Debug, AppendShaderContext(message));
     }
 
     void Warn(const std::string &message) {
-        skyline::Logger::Write(skyline::Logger::LogLevel::Warn, message);
+        skyline::Logger::Write(skyline::Logger::LogLevel::Warn, AppendShaderContext(message));
     }
 
     void Error(const std::string &message) {
-        skyline::Logger::Write(skyline::Logger::LogLevel::Error, message);
+        skyline::Logger::Write(skyline::Logger::LogLevel::Error, AppendShaderContext(message));
     }
 }
 
@@ -388,6 +445,7 @@ namespace skyline::gpu {
         binary = ProcessShaderBinary(false, hash, binary);
 
         std::scoped_lock lock{poolMutex};
+        ShaderLogScope logScope{hash, stage};
 
         GraphicsEnvironment environment{postVtgShaderAttributeSkipMask, stage, binary, baseOffset, textureConstantBufferIndex, viewportTransformEnabled, constantBufferRead, getTextureType};
         Shader::Maxwell::Flow::CFG cfg{environment, flowBlockPool, Shader::Maxwell::Location{static_cast<u32>(baseOffset + sizeof(Shader::ProgramHeader))}};
@@ -415,6 +473,7 @@ namespace skyline::gpu {
         binary = ProcessShaderBinary(false, hash, binary);
 
         std::scoped_lock lock{poolMutex};
+        ShaderLogScope logScope{hash, Shader::Stage::Compute};
 
         ComputeEnvironment environment{binary, baseOffset, textureConstantBufferIndex, localMemorySize, sharedMemorySize, workgroupDimensions, constantBufferRead, getTextureType};
         Shader::Maxwell::Flow::CFG cfg{environment, flowBlockPool, Shader::Maxwell::Location{static_cast<u32>(baseOffset)}};
@@ -423,6 +482,7 @@ namespace skyline::gpu {
 
     vk::ShaderModule ShaderManager::CompileShader(const Shader::RuntimeInfo &runtimeInfo, Shader::IR::Program &program, Shader::Backend::Bindings &bindings, u64 hash) {
         std::scoped_lock lock{poolMutex};
+        ShaderLogScope logScope{hash, program.stage};
 
         if (program.info.loads.Legacy() || program.info.stores.Legacy())
             Shader::Maxwell::ConvertLegacyToGeneric(program, runtimeInfo);
